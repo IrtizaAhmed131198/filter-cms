@@ -1,0 +1,1 @@
+<?php $segment = Request::segments();?>
