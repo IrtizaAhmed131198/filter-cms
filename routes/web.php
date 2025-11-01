@@ -2,6 +2,8 @@
 
 
 
+
+use App\Http\Controllers\Admin\TrainingController;
 use App\Http\Controllers\Admin\BookController;
 use App\Http\Controllers\Admin\BooksController;
 use Illuminate\Support\Facades\Route;
@@ -10,6 +12,7 @@ use App\Http\Controllers\Admin\BannerController;
 use App\Http\Controllers\Admin\NewsController;
 use App\Http\Controllers\Admin\PageController;
 use App\Http\Controllers\Admin\SectionController;
+use App\Http\Controllers\Admin\UsersController;
 
 /*
 |--------------------------------------------------------------------------
@@ -242,19 +245,23 @@ Route::middleware(['auth', 'role:1'])->prefix('admin')->group(function () {
     Route::get('/crud-generator', ['uses' => 'ProcessController@getGenerator']);
     Route::post('/crud-generator', ['uses' => 'ProcessController@postGenerator']);
 
-    # Activity log
-    Route::get('activity-log','LogViewerController@getActivityLog');
-    Route::get('activity-log/data', 'LogViewerController@activityLogData')->name('activity-log.data');
-
     #User Management routes
-    Route::get('users','Admin\\UsersController@Index');
-    Route::get('user/create','Admin\\UsersController@create');
-    Route::post('user/create','Admin\\UsersController@save');
-    Route::get('user/edit/{id}','Admin\\UsersController@edit');
-    Route::post('user/edit/{id}','Admin\\UsersController@update');
-    Route::get('user/delete/{id}','Admin\\UsersController@destroy');
-    Route::get('user/deleted/','Admin\\UsersController@getDeletedUsers');
-    Route::get('user/restore/{id}','Admin\\UsersController@restoreUser');
+    // Route::get('users','Admin\\UsersController@Index');
+    // Route::get('user/create','Admin\\UsersController@create');
+    // Route::post('user/create','Admin\\UsersController@save');
+    // Route::get('user/edit/{id}','Admin\\UsersController@edit');
+    // Route::post('user/edit/{id}','Admin\\UsersController@update');
+    // Route::get('user/delete/{id}','Admin\\UsersController@destroy');
+    Route::get('users/data', [UsersController::class, 'getData'])->name('admin.users.data');
+    Route::post('users/{id}/toggle-status', [UsersController::class, 'toggleStatus'])->name('admin.users.toggleStatus');
+    Route::get('users/trash', [UsersController::class, 'trash'])->name('admin.users.trash');
+    Route::get('users/trash/data', [UsersController::class, 'getTrashedData'])->name('admin.users.trash.data');
+    Route::post('users/{id}/restore', [UsersController::class, 'restore'])->name('admin.users.restore');
+    Route::delete('users/{id}/force-delete', [UsersController::class, 'forceDelete'])->name('admin.users.forceDelete');
+    Route::delete('users/bulk-delete', [UsersController::class, 'bulkDelete'])->name('admin.users.bulkDelete');
+    Route::post('users/bulk-restore', [UsersController::class, 'bulkRestore'])->name('admin.users.bulkRestore');
+    Route::delete('users/bulk-force-delete', [UsersController::class, 'bulkForceDelete'])->name('admin.users.bulkForceDelete');
+    Route::resource('users', UsersController::class)->names('admin.users');
 
 
     Route::resource('product', 'Admin\\ProductController');
@@ -289,6 +296,7 @@ Route::middleware(['auth', 'role:1'])->prefix('admin')->group(function () {
     Route::delete('banner/bulk-delete', [BannerController::class, 'bulkDelete'])->name('admin.banner.bulkDelete');
     Route::post('banner/bulk-restore', [BannerController::class, 'bulkRestore'])->name('admin.banner.bulkRestore');
     Route::delete('banner/bulk-force-delete', [BannerController::class, 'bulkForceDelete'])->name('admin.banner.bulkForceDelete');
+    Route::post('admin/banner/sort', [BannerController::class, 'sort'])->name('admin.banner.sort');
     Route::resource('banner', BannerController::class)->names('admin.banner');
 
     // News (resource)

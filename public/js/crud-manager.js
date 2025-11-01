@@ -51,8 +51,43 @@ window.CRUDManager = (function () {
         const table = $(tableSelector).DataTable({
             processing: true,
             serverSide: true,
-            ajax: config.routes.data,
-            columns: config.columns
+            ajax: {
+                url: config.routes.data,
+                data: function (d) {
+                    if (typeof config.extraFilters === 'function') {
+                        const filters = config.extraFilters();
+                        Object.assign(d, filters);
+                    }
+                }
+            },
+            columns: config.columns,
+            rowReorder: {
+                selector: '.drag-handle',
+                update: false
+            },
+            order: []
+        });
+
+        /* ==========================================================
+         *  ROW REORDER (SORTING SYSTEM)
+         * ========================================================== */
+        table.on('row-reorder', function (e, diff, edit) {
+            let order = [];
+            for (let i = 0; i < diff.length; i++) {
+                const rowData = table.row(diff[i].node).data();
+                // DataTables provides newPosition (and oldPosition)
+                order.push({
+                    id: rowData.id,
+                    position: parseInt(diff[i].newPosition, 10) // ensure it's a number
+                });
+            }
+
+            if (order.length > 0) {
+                ajaxRequest('POST', config.routes.sort, { order }, (res) => {
+                    showToast('Success', res.message || 'Order updated successfully.', 'success');
+                    table.ajax.reload(null, false);
+                });
+            }
         });
 
         /* ==========================================================
@@ -73,14 +108,15 @@ window.CRUDManager = (function () {
         // Toggle Status
         $(document).on('click', `.toggle${entityName}Status`, function () {
             const id = $(this).data('id');
-            const button = $(this);
+            const checkbox = $(this);
 
             ajaxRequest('POST', config.routes.toggleStatus.replace(':id', id), {}, (res) => {
                 if (res.success) {
                     showToast('Updated', res.status + ' successfully.', 'success');
-                    button.toggleClass('btn-success btn-danger').text(res.status);
                 } else {
                     showToast('Error', 'Unable to update status.', 'error');
+                    // Revert state if failed
+                    checkbox.prop('checked', !checkbox.prop('checked'));
                 }
             });
         });

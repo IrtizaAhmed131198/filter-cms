@@ -32,6 +32,8 @@
     <link href="{{asset('plugins/vendors/perfect-scrollbar/css/perfect-scrollbar.css')}}" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="{{ asset('assets/css/datatables.min.css') }}">
+    <link rel="stylesheet" href="https://cdn.datatables.net/rowreorder/1.3.3/css/rowReorder.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     @stack('before-css')
     <link href="{{asset('assets/css/custom.css')}}" rel="stylesheet">
    <script src="{{ asset('vendor/unisharp/laravel-ckeditor/ckeditor.js') }}"></script>
@@ -75,6 +77,7 @@
 <script src="{{asset('assets/js/customizer.min.js')}}"></script>
 <script src="{{ asset('assets/js/datatables.min.js') }}"></script>
 <script src="{{asset('plugins/components/toast-master/js/jquery.toast.js')}}"></script>
+<script src="https://cdn.datatables.net/rowreorder/1.3.3/js/dataTables.rowReorder.min.js"></script>
 <!-- END: Theme JS-->
 <<!-- script src="{{asset('plugins/vendors/jquery/jquery.min.js')}}"></script>
 <script src="{{asset('plugins/vendors/jquery/spartan-multi-image-picker.min.js')}}"></script>

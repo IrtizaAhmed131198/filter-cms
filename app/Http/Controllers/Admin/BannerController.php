@@ -16,12 +16,6 @@ class BannerController extends Controller
 {
     use FileUploadTrait;
 
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\View\View
-     */
-
     public function index()
     {
         return view('admin.banner.index');
@@ -29,16 +23,34 @@ class BannerController extends Controller
 
     public function getData(Request $request)
     {
-        $banners = Banner::orderByDesc('id')->get();
+        $query = Banner::orderBy('sort_order', 'asc');
 
-        return DataTables::of($banners)
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('from_date') && $request->filled('to_date')) {
+            $query->whereBetween('created_at', [
+                $request->from_date . ' 00:00:00',
+                $request->to_date . ' 23:59:59'
+            ]);
+        }
+
+        return DataTables::of($query)
             ->addColumn('image', function ($row) {
                 return '<img src="'.asset($row->image).'" width="120">';
             })
             ->addColumn('status', function ($row) {
-                $badgeClass = $row->status ? 'success' : 'danger';
-                $text = $row->status ? 'Active' : 'Inactive';
-                return '<button class="btn btn-sm btn-' . $badgeClass . ' toggleBannerStatus" data-id="' . $row->id . '">' . $text . '</button>';
+                $checked = $row->status ? 'checked' : '';
+                return '
+                    <label class="switch">
+                        <input type="checkbox" class="toggleBannerStatus" data-id="' . $row->id . '" ' . $checked . '>
+                        <span class="slider round" title="Click to toggle status"></span>
+                    </label>
+                ';
+            })
+            ->addColumn('created_at', function ($row) {
+                return $row->created_at ? $row->created_at->format('d M, Y h:i A') : '-';
             })
             ->addColumn('action', function ($row) {
                 $edit = '<a href="'.url('admin/banner/'.$row->id.'/edit').'" class="btn btn-sm btn-info"><i class="la la-pencil"></i></a>';
@@ -49,23 +61,11 @@ class BannerController extends Controller
             ->make(true);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\View\View
-     */
     public function create()
     {
         return view('admin.banner.create');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param \Illuminate\Http\Request $request
-     *
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Routing\Redirector
-     */
     public function store(StoreBannerRequest $request)
     {
         $data = $request->validated();
@@ -73,46 +73,28 @@ class BannerController extends Controller
             $data['image'] = $this->uploadFile($request->file('image'), 'uploads/banner/', 'banner');
         }
 
-        Banner::create($data);
+        $banner = Banner::create($data);
+
+        log_activity('create', Banner::class, $banner->id, 'Created a new banner: ' . $banner->title ?? 'N/A', ['banner' => $banner->toArray()]);
 
         return redirect('admin/banner')->with('message', 'Banner added!');
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     *
-     * @return \Illuminate\View\View
-     */
     public function show(Banner $banner)
     {
         return view('admin.banner.show', compact('banner'));
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     *
-     * @return \Illuminate\View\View
-     */
     public function edit(Banner $banner)
     {
         return view('admin.banner.edit', compact('banner'));
     }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @param  int  $id
-     *
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Routing\Redirector
-     */
     public function update(UpdateBannerRequest $request, Banner $banner)
     {
         $data = $request->validated();
+
+        $oldData = $banner->toArray();
 
         if ($request->hasFile('image')) {
             $this->deleteFile($banner->image);
@@ -121,26 +103,31 @@ class BannerController extends Controller
 
         $banner->update($data);
 
+        log_activity('update', Banner::class, $banner->id, 'Updated banner: ' . $banner->title ?? 'N/A', ['before' => $oldData, 'after' => $banner->toArray()]);
+
         return redirect()->route('admin.banner.index')->with('message', 'Banner updated successfully!');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     *
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Routing\Redirector
-     */
     public function destroy(Banner $banner)
     {
         $banner->delete();
+        log_activity('delete', Banner::class, $banner->id, "Deleted banner {$banner->title}");
         return response()->json(['success' => 'Banner deleted successfully.']);
     }
 
     public function toggleStatus(Banner $banner)
     {
         $banner->status = !$banner->status;
+        $oldStatus = $banner->status;
         $banner->save();
+
+        log_activity('status_toggle', Banner::class, $banner->id,
+            'Toggled banner status for ' . $banner->name . ' from ' . ($oldStatus ? 'Active' : 'Inactive') . ' to ' . ($banner->status ? 'Active' : 'Inactive'),
+            [
+                'old_status' => $oldStatus,
+                'new_status' => $banner->status
+            ]
+        );
 
         return response()->json([
             'success' => true,
@@ -179,6 +166,8 @@ class BannerController extends Controller
         $banner = Banner::withTrashed()->findOrFail($id);
         $banner->restore();
 
+        log_activity('restore', Banner::class, $id, "Restored banner {$banner->title}");
+
         return response()->json(['success' => 'Banner restored successfully!']);
     }
 
@@ -191,6 +180,8 @@ class BannerController extends Controller
         }
 
         $banner->forceDelete();
+
+        log_activity('force_delete', Banner::class, $id, "Banner {$banner->title} permenantly deleted");
 
         return response()->json(['success' => 'Banner permanently deleted.']);
     }
@@ -206,6 +197,8 @@ class BannerController extends Controller
 
         Banner::whereIn('id', $ids)->delete();
 
+        log_activity('bulk_delete', Banner::class, null, 'Bulk deleted banners: ' . implode(',', $ids), ['ids' => $ids]);
+
         return response()->json(['success' => 'Selected banners deleted successfully.']);
     }
 
@@ -219,6 +212,8 @@ class BannerController extends Controller
         }
 
         Banner::withTrashed()->whereIn('id', $ids)->restore();
+
+        log_activity('bulk_restore', Banner::class, null, 'Bulk restore banners: ' . implode(',', $ids), ['ids' => $ids]);
 
         return response()->json(['success' => 'Selected banners restored successfully.']);
     }
@@ -234,11 +229,40 @@ class BannerController extends Controller
 
         $banners = Banner::withTrashed()->whereIn('id', $ids)->get();
 
+        log_activity('bulk_force_delete', Banner::class, null, 'Bulk permanently deleted banners: ' . implode(',', $ids), ['ids' => $ids]);
+
         foreach ($banners as $banner) {
             $this->deleteFile($banner->image);
             $banner->forceDelete();
         }
 
         return response()->json(['success' => 'Selected banners permanently deleted.']);
+    }
+
+    public function sort(Request $request)
+    {
+        $order = $request->input('order', []);
+        if (!is_array($order) || empty($order)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No order data received',
+                'received' => $request->all()
+            ], 400);
+        }
+
+        foreach ($order as $item) {
+            // accept either 'position' or 'newPosition' for robustness
+            $pos = $item['position'] ?? $item['newPosition'] ?? null;
+            $id  = $item['id'] ?? null;
+
+            if ($id === null || $pos === null) {
+                // skip invalid entries
+                continue;
+            }
+
+            Banner::where('id', $id)->update(['sort_order' => (int)$pos]);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Order updated successfully']);
     }
 }

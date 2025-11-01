@@ -27,9 +27,18 @@ class UpdateUserRequest extends FormRequest
             'email' => [
                 'required',
                 'email',
-                Rule::unique('users', 'email')->ignore($this->route('id')),
+                Rule::unique('users', 'email')->ignore($this->route('user')),
             ],
             'password' => 'nullable|min:6|confirmed',
+            'dob' => 'nullable|date',
+            'bio' => 'nullable|string|max:500',
+            'gender' => 'nullable|in:male,female,other',
+            'pic' => 'nullable|mimes:jpg,jpeg,png,webp|max:2048',
+            'country' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:100',
+            'city' => 'nullable|string|max:100',
+            'address' => 'nullable|string|max:255',
+            'postal' => 'nullable|string|max:20',
         ];
     }
 }

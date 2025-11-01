@@ -6,6 +6,7 @@ namespace App\Providers;
 
 
 
+
 use App\Models\News;
 use App\Observers\NewsObserver;
 use Illuminate\Auth\Events\Registered;

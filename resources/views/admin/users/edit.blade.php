@@ -1,376 +1,217 @@
 @extends('layouts.app')
-
-@push('after-css')
-    <link href="{{ asset('plugins/components/jasny-bootstrap/css/jasny-bootstrap.css') }}" rel="stylesheet">
-    <link href="{{asset('plugins/components/icheck/skins/all.css')}}" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.5/css/select2.min.css" rel="stylesheet"/>
-    {{--<link href="{{asset('plugins/components/bootstrap-datepicker/bootstrap-datepicker.min.css')}}">--}}
-    <link href="{{asset('plugins/components/jqueryui/jquery-ui.min.css')}}" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-validator/0.5.3/css/bootstrapValidator.min.css">
-    <style>
-
-        #rootwizard .nav-pills > li > a.active {
-            background: #d3e0fc;
-            color: #4886ff;
-
-        }
-
-        #rootwizard .nav-pills > li > a {
-            padding: .4rem 1.3rem;
-            border-radius: 2rem;
-            border: 1px solid transparent;
-            display: block;
-        }
-
-        #rootwizard .nav.nav-pills {
-            margin-bottom: 25px;
-
-        }
-
-        #rootwizard .nav.nav-pills .nav-link {
-            padding: 0px;
-        }
-
-        .help-block {
-            display: block;
-            margin-top: 5px;
-            margin-bottom: 10px;
-        }
-
-        .nav-pills > li > a {
-            cursor: default;;
-            background-color: inherit;
-        }
-
-        .nav-pills > li > a:focus, .nav-tabs > li > a:focus, .nav-pills > li > a:hover, .nav-tabs > li > a:hover {
-            border: 1px solid transparent !important;
-            background-color: inherit !important;
-        }
-
-        .has-error .help-block {
-            color: #EF6F6C;
-        }
-
-        .select2 {
-            width: 100% !important;
-        }
-
-        .error-block {
-            background-color: #ff9d9d;
-            color: red;
-        }
-
-        .pager.wizard {
-            padding-left: 0;
-            margin: 20px 0;
-            text-align: center;
-            list-style: none;
-        }
-
-        .col-lg-2.control-label {
-            text-align: right;
-            line-height: 35px;
-        }
-
-        @media screen and (max-width: 768px) {
-            .col-lg-2.control-label {
-                text-align: left;
-                line-height: 35px;
-            }
-        }
-    </style>
+@push('before-css')
+<link rel="stylesheet" href="{{ asset('plugins/vendors/dropify/dist/css/dropify.min.css') }}">
+<style>
+    .user-card {
+        height: unset !important;
+    }
+</style>
 @endpush
-
 @section('content')
-    <div class="container-fluid">
-        <!-- .row -->
-        <div class="row">
-            <div class="col-sm-12">
-                <div class="white-box card">
-                    <div class="card-body">
-                        <h3 class="box-title pull-left">Edit User</h3>
-                        <div class="clearfix"></div>
-                        <form id="commentForm" action="{{url('user/edit/'.$user->id)}}"
-                              method="POST" enctype="multipart/form-data" class="">
-                            <!-- CSRF Token -->
-                            <input type="hidden" name="_token" value="{{ csrf_token() }}"/>
 
-                            <div id="rootwizard">
-                                <ul class="nav nav-tabs pb-2">
-                                    <li class=" nav-link"><a href="#tab1" class="active" data-toggle="tab">User
-                                            Profile</a></li>
-                                    <li class="nav-link"><a href="#tab2" data-toggle="tab">Bio</a></li>
-                                    <li class="nav-link"><a href="#tab3" data-toggle="tab">Address</a></li>
-                                    <li class="nav-link"><a href="#tab4" data-toggle="tab">User Role</a></li>
+<div class="content-header row">
+    <div class="content-header-left col-md-12 col-12 mb-2 breadcrumb-new">
+        <h3 class="content-header-title mb-0 d-inline-block">Edit User</h3>
+        <div class="row breadcrumbs-top d-inline-block">
+            <div class="breadcrumb-wrapper col-12">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url('admin/dashboard') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url('admin/users') }}">User Management</a></li>
+                    <li class="breadcrumb-item active">Edit User</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="content-body">
+    <section id="basic-form-layouts">
+        <div class="row match-height">
+            <div class="col-md-7">
+                <div class="card user-card">
+                    <div class="card-header">
+                        <h4 class="card-title">Edit User Info</h4>
+                    </div>
+                    <div class="card-content collapse show">
+                        <div class="card-body">
+
+                            <form method="POST" action="{{ route('admin.users.update', $user->id) }}"
+                                  enctype="multipart/form-data">
+                                @csrf
+                                @method('PUT')
+
+                                {{-- Tabs Navigation --}}
+                                <ul class="nav nav-tabs nav-underline" id="userTab" role="tablist">
+                                    <li class="nav-item">
+                                        <a class="nav-link active" data-toggle="tab" href="#user-info" role="tab">User Info</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" data-toggle="tab" href="#bio" role="tab">Bio Info</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" data-toggle="tab" href="#address-info" role="tab">Address Info</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" data-toggle="tab" href="#role-info" role="tab">User Role Info</a>
+                                    </li>
                                 </ul>
-                                <div class="tab-content">
-                                    <div class="tab-pane active" id="tab1">
-                                        {{--<h2 class="hidden">&nbsp;</h2>--}}
-                                        <div class="form-group row justify-content-center  {{ $errors->first('name', 'has-error') }}">
-                                            <label for="name" class="col-12 col-lg-2 control-label">Name *</label>
-                                            <div class="col-12 col-lg-6">
-                                                <input id="name" name="name" type="text"
-                                                       placeholder="Name" class="form-control required"
-                                                       value="{{$user->name}}"/>
 
-                                                {!! $errors->first('name', '<span class="help-block">:message</span>') !!}
+                                {{-- Tabs Content --}}
+                                <div class="tab-content pt-2" id="userTabContent">
+
+                                    {{-- User Info --}}
+                                    <div class="tab-pane fade show active" id="user-info" role="tabpanel">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label>Name</label>
+                                                <input type="text" name="name" class="form-control"
+                                                       value="{{ old('name', $user->name) }}" required>
                                             </div>
-                                        </div>
-
-                                        <div class="form-group row justify-content-center  {{ $errors->first('email', 'has-error') }}">
-                                            <label for="email" class="col-12 col-lg-2 control-label">Email *</label>
-                                            <div class="col-12 col-lg-6">
-                                                <input id="email" name="email" placeholder="E-mail" type="text"
-                                                       class="form-control required email" value="{{$user->email}}"/>
-                                                {!! $errors->first('email', '<span class="help-block">:message</span>') !!}
+                                            <div class="col-md-6">
+                                                <label>Email</label>
+                                                <input type="email" name="email" class="form-control"
+                                                       value="{{ old('email', $user->email) }}" required>
                                             </div>
-                                        </div>
-                                        <h6><b>If you don't want to change password... please leave them empty</b></h6>
-
-                                        <div class="form-group row justify-content-center  {{ $errors->first('password', 'has-error') }}">
-                                            <label for="password" class="col-12 col-lg-2 control-label">Password
-                                                *</label>
-                                            <div class="col-12 col-lg-6">
-                                                <input id="password" name="password" type="password"
-                                                       placeholder="Password"
-                                                       class="form-control required" value="{!! old('password') !!}"/>
-                                                {!! $errors->first('password', '<span class="help-block">:message</span>') !!}
+                                            <div class="col-md-6 mt-2">
+                                                <label>Password (Leave blank if unchanged)</label>
+                                                <input type="password" name="password" class="form-control">
                                             </div>
-                                        </div>
-
-                                        <div class="form-group row justify-content-center  {{ $errors->first('password_confirmation', 'has-error') }}">
-                                            <label for="password_confirm" class="col-12 col-lg-2 control-label">Confirm
-                                                Password
-                                                *</label>
-                                            <div class="col-12 col-lg-6">
-                                                <input id="password_confirmation" name="password_confirmation"
-                                                       type="password"
-                                                       placeholder="Confirm Password " class="form-control required"/>
-                                                {!! $errors->first('password_confirmation', '<span class="help-block">:message</span>') !!}
+                                            <div class="col-md-6 mt-2">
+                                                <label>Confirm Password</label>
+                                                <input type="password" name="password_confirmation" class="form-control">
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="tab-pane" id="tab2" disabled="disabled">
-                                        <h2 class="hidden">&nbsp;</h2>
-                                        <div class="form-group row justify-content-center   {{ $errors->first('dob', 'has-error') }}">
-                                            <label for="dob" class="col-12 col-lg-2 control-label">Date of Birth</label>
-                                            <div class="col-12 col-lg-6">
-                                                <input autocomplete="off" value="{{$user->profile->dob ?: null}}"
-                                                       id="dob"
-                                                       name="dob" type="text" class="form-control"
-                                                       data-date-format="YYYY-MM-DD"
-                                                       placeholder="yyyy-mm-dd"/>
-                                                <span class="help-block">{{ $errors->first('dob', ':message') }}</span>
 
+                                    {{-- Bio Info --}}
+                                    <div class="tab-pane fade" id="bio" role="tabpanel">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label>Date of Birth</label>
+                                                <input type="date" name="dob" class="form-control"
+                                                       value="{{ old('dob', $user->profile->dob ?? '') }}">
                                             </div>
-                                        </div>
-
-
-                                        <div class="form-group row justify-content-center  {{ $errors->first('pic_file', 'has-error') }}">
-                                            <label for="pic" class="col-12 col-lg-2 control-label">Profile
-                                                picture</label>
-                                            <div class="col-12 col-lg-6">
-                                                <div class="fileinput fileinput-new" data-provides="fileinput">
-                                                    <div class="fileinput-new thumbnail"
-                                                         style="width: 200px; height: 200px;">
-                                                        @if($user->profile->pic != null)
-                                                            <img src="{{asset('storage/uploads/users/'.$user->profile->pic)}}"
-                                                                 alt="profile pic">
-                                                        @else
-                                                            <img src="http://placehold.it/200x200" alt="profile pic">
-                                                        @endif
-                                                    </div>
-                                                    <div class="fileinput-preview fileinput-exists thumbnail"
-                                                         style="max-width: 200px; max-height: 200px;"></div>
-                                                    <div>
-                                                <span class="btn btn-file">
-                                                    <span class="fileinput-new">Select image</span>
-                                                    <span class="fileinput-exists">Change</span>
-                                                    <input id="pic" name="pic_file" type="file" class="form-control"/>
-                                                </span>
-                                                        <a href="#" class="btn btn-danger fileinput-exists"
-                                                           data-dismiss="fileinput">Remove</a>
-                                                    </div>
-                                                </div>
-                                                <span class="help-block">{{ $errors->first('pic_file', ':message') }}</span>
+                                            <div class="col-md-6">
+                                                <label>About / Bio</label>
+                                                <textarea name="bio" rows="4" class="form-control">{{ old('bio', $user->profile->bio ?? '') }}</textarea>
                                             </div>
-                                        </div>
-
-
-                                        <div class="form-group row justify-content-center ">
-                                            <label for="bio" class="col-12 col-lg-2 control-label">Bio
-                                                <small>(brief intro) *</small>
-                                            </label>
-                                            <div class="col-12 col-lg-6">
-                        <textarea name="bio" id="bio" class="form-control resize_vertical"
-                                  rows="4">{{$user->profile->bio}}</textarea>
+                                            <div class="col-md-12 mt-2">
+                                                <label>Profile Picture</label>
+                                                <input type="file" name="pic" class="dropify"
+                                                    data-default-file="{{ asset($user->profile?->pic ?? 'assets/imgs/noimage.png') }}"
+                                                    data-height="120" />
                                             </div>
-                                            {!! $errors->first('bio', '<span class="help-block">:message</span>') !!}
                                         </div>
                                     </div>
-                                    <div class="tab-pane" id="tab3" disabled="disabled">
-                                        <div class="form-group row justify-content-center  {{ $errors->first('gender', 'has-error') }}">
-                                            <label for="email" class="col-12 col-lg-2 control-label">Gender *</label>
-                                            <div class="col-12 col-lg-6">
-                                                <select class="form-control" title="Select Gender..." name="gender">
+
+                                    {{-- Address Info --}}
+                                    <div class="tab-pane fade" id="address-info" role="tabpanel">
+                                        <div class="row">
+                                            <div class="col-md-12">
+                                                <label>Gender</label>
+                                                <select class="form-control" name="gender">
                                                     <option value="">Select</option>
-                                                    <option value="male"
-                                                            @if($user->profile->gender === 'male') selected="selected" @endif >
-                                                        Male
-                                                    </option>
-                                                    <option value="female"
-                                                            @if($user->profile->gender === 'female') selected="selected" @endif >
-                                                        Female
-                                                    </option>
-                                                    <option value="other"
-                                                            @if($user->profile->gender === 'other') selected="selected" @endif >
-                                                        Other
-                                                    </option>
-
+                                                    <option value="male" {{ old('gender', $user->profile->gender ?? '') == 'male' ? 'selected' : '' }}>Male</option>
+                                                    <option value="female" {{ old('gender', $user->profile->gender ?? '') == 'female' ? 'selected' : '' }}>Female</option>
+                                                    <option value="other" {{ old('gender', $user->profile->gender ?? '') == 'other' ? 'selected' : '' }}>Other</option>
                                                 </select>
-                                                <span class="help-block">{{ $errors->first('gender', ':message') }}</span>
                                             </div>
-
-                                        </div>
-
-                                        <div class="form-group row justify-content-center  {{ $errors->first('country', 'has-error') }}">
-                                            <label for="country" class="col-12 col-lg-2 control-label">Country</label>
-                                            <div class="col-12 col-lg-6">
-                                                <input id="countries" name="country" type="text"
-                                                       class="form-control"
-                                                       value="{{$user->profile->country}}"/>
-                                                <span class="help-block">{{ $errors->first('country', ':message') }}</span>
-
+                                            <div class="col-md-6 mt-2">
+                                                <label>Country</label>
+                                                <input type="text" name="country" class="form-control"
+                                                       value="{{ old('country', $user->profile->country ?? '') }}">
                                             </div>
-                                        </div>
-
-                                        <div class="form-group row justify-content-center  {{ $errors->first('state', 'has-error') }}">
-                                            <label for="state" class="col-12 col-lg-2 control-label">State</label>
-                                            <div class="col-12 col-lg-6">
-                                                <input id="state" name="state" type="text"
-                                                       class="form-control"
-                                                       value="{{$user->profile->state}}"/>
-                                                <span class="help-block">{{ $errors->first('state', ':message') }}</span>
+                                            <div class="col-md-6 mt-2">
+                                                <label>State</label>
+                                                <input type="text" name="state" class="form-control"
+                                                       value="{{ old('state', $user->profile->state ?? '') }}">
                                             </div>
-                                        </div>
-
-                                        <div class="form-group row justify-content-center  {{ $errors->first('city', 'has-error') }}">
-                                            <label for="city" class="col-12 col-lg-2 control-label">City</label>
-                                            <div class="col-12 col-lg-6">
-                                                <input id="city" name="city" type="text" class="form-control"
-                                                       value="{{$user->profile->city}}"/>
-                                                <span class="help-block">{{ $errors->first('city', ':message') }}</span>
-
+                                            <div class="col-md-6 mt-2">
+                                                <label>City</label>
+                                                <input type="text" name="city" class="form-control"
+                                                       value="{{ old('city', $user->profile->city ?? '') }}">
                                             </div>
-                                        </div>
-
-                                        <div class="form-group row justify-content-center  {{ $errors->first('address', 'has-error') }}">
-                                            <label for="address" class="col-12 col-lg-2 control-label">Address</label>
-                                            <div class="col-12 col-lg-6">
-                                                <input id="address" name="address" type="text" class="form-control"
-                                                       value="{{$user->profile->address}}"/>
-                                                <span class="help-block">{{ $errors->first('address', ':message') }}</span>
-
+                                            <div class="col-md-6 mt-2">
+                                                <label>Address</label>
+                                                <input type="text" name="address" class="form-control"
+                                                       value="{{ old('address', $user->profile->address ?? '') }}">
                                             </div>
-                                        </div>
-
-                                        <div class="form-group row justify-content-center  {{ $errors->first('postal', 'has-error') }}">
-                                            <label for="postal" class="col-12 col-lg-2 control-label">Postal/zip</label>
-                                            <div class="col-12 col-lg-6">
-                                                <input id="postal" name="postal" type="text" class="form-control"
-                                                       value="{{$user->profile->postal}}"/>
-                                                <span class="help-block">{{ $errors->first('postal', ':message') }}</span>
-
+                                            <div class="col-md-6 mt-2">
+                                                <label>Postal/Zip</label>
+                                                <input type="text" name="postal" class="form-control"
+                                                       value="{{ old('postal', $user->profile->postal ?? '') }}">
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="tab-pane" id="tab4" disabled="disabled">
-                                        <p class="text-danger"><strong>Be careful with role selection, if you give admin
-                                                access.. they can access admin section</strong></p>
 
-                                        <div class="form-group row justify-content-center  required {{ $errors->first('role', 'has-error') }}">
-                                            <label for="group" class="col-12 col-lg-2 control-label">Role *</label>
-                                            <div class="col-12 col-lg-6">
-                                                <select class="form-control required" title="Select role..." name="role"
-                                                        id="role">
-                                                    <option value="">Select</option>
+                                    {{-- Role Info --}}
+                                    <div class="tab-pane fade" id="role-info" role="tabpanel">
+                                        <p class="text-danger"><strong>Be careful with role selection!</strong></p>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label>User Role</label>
+                                                <select class="form-control" name="role" id="role" required>
                                                     @foreach($roles as $role)
                                                         <option value="{{ $role->id }}"
-                                                                @if(in_array($role->id,$user->roles()->pluck('id')->toArray())) selected="selected" @endif >{{ $role->name}}</option>
+                                                            {{ old('role', $user->role ?? '') == $role->id ? 'selected' : '' }}>
+                                                            {{ $role->label }}
+                                                        </option>
                                                     @endforeach
                                                 </select>
-                                                <span class="help-block">{{ $errors->first('role', ':message') }}</span>
                                             </div>
                                         </div>
-
-                                    </div>
-                                    <hr class="mt-3">
-                                    <div class="col-12 text-center">
-                                        <ul class="pager wizard d-inline-block w-75 mx-auto my-0 ">
-                                            <li class="previous  float-left"><a href="#" class="border btn btn-outline">Previous</a>
-                                            </li>
-                                            <li class="next float-right"><a class="border btn btn-outline"
-                                                                            href="#">Next</a>
-                                            </li>
-                                            <li class="next float-right finish" style="display:none;"><a
-                                                        class="border btn btn-outline" href="javascript:;">Finish</a>
-                                            </li>
-                                        </ul>
                                     </div>
                                 </div>
-                            </div>
-                        </form>
 
+                                <div class="text-right mt-3">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="la la-check"></i> Update User
+                                    </button>
+                                </div>
 
-                        @if(count($errors) > 0)
-                            <div class="alert alert-danger">Errors! Please fill form with proper details</div>
-                        @endif
+                            </form>
 
+                        </div>
                     </div>
                 </div>
             </div>
+
+            {{-- Errors / Info --}}
+            <div class="col-md-5">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Information</h4>
+                    </div>
+                    <div class="card-content collapse show">
+                        <div class="card-body">
+                            <div class="card-text">
+                                @if ($errors->any())
+                                    <ul>
+                                        @foreach ($errors->all() as $error)
+                                            <li class="alert alert-danger">{{ $error }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                                @if (Session::has('message'))
+                                    <ul><li class="alert alert-success">{{ Session::get('message') }}</li></ul>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
-        @include('layouts.partials.footer')
-    </div>
+    </section>
+</div>
+
 @endsection
 
 @push('js')
-    <script src="{{ asset('plugins/components/jasny-bootstrap/js/jasny-bootstrap.js') }}"></script>
-    <script src="{{asset('plugins/components/icheck/icheck.min.js')}}"></script>
-    <script src="{{asset('plugins/components/icheck/icheck.init.js')}}"></script>
-    <script src="{{asset('plugins/components/moment/moment.js')}}"></script>
-    {{--<script src="{{asset('plugins/components/bootstrap-datepicker/bootstrap-datepicker.min.js')}}"></script>--}}
-    <script src="{{asset('plugins/components/jqueryui/jquery-ui.min.js')}}"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-validator/0.5.3/js/bootstrapValidator.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap-wizard/1.2/jquery.bootstrap.wizard.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.5/js/select2.full.min.js"
-            type="text/javascript"></script>
-    <script src="{{asset('plugins/components/toast-master/js/jquery.toast.js')}}"></script>
-    <script src="{{ asset('js/edituser.js') }}"></script>
-
-    <script>
-        @if(\Session::has('message'))
-        $.toast({
-            heading: 'Success!',
-            position: 'top-center',
-            text: '{{session()->get('message')}}',
-            loaderBg: '#ff6849',
-            icon: 'success',
-            hideAfter: 3000,
-            stack: 6
-        });
-        @endif
-    </script>
-    <script>
-        $("#dob").datepicker({
-            dateFormat: 'yy-m-d',
-            SetDate: "{{$user->profile->dob}}",
-            widgetPositioning: {
-                vertical: 'bottom'
-            },
-            keepOpen: false,
-            useCurrent: false,
-            maxDate: moment().add(1, 'h').toDate()
-        });
-    </script>
+<script src="{{ asset('plugins/vendors/dropify/dist/js/dropify.min.js') }}"></script>
+<script>
+    $(function() {
+        $('.dropify').dropify();
+    });
+</script>
 @endpush

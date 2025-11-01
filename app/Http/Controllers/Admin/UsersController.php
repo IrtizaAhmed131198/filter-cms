@@ -13,6 +13,7 @@ use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
 use App\Traits\FileUploadTrait;
 
 class UsersController extends Controller
@@ -21,39 +22,75 @@ class UsersController extends Controller
 
     public function index()
     {
-        return view('admin.users.index');
+        $total_users = User::where('role', '!=', 1)->count();
+        $active_users = User::where('role', '!=', 1)->where('status', 1)->count();
+        $inactive_users = User::where('role', '!=', 1)->where('status', 0)->count();
+        $roles = Role::where('name', '!=', 'super_admin')->get();
+        return view('admin.users.index', compact('total_users', 'active_users', 'inactive_users', 'roles'));
     }
 
     public function getData(Request $request)
     {
-        $users = User::with('roles:id,name', 'profile')
-                    ->orderByDesc('id')
-                    ->get();
+        $query = User::where('role', '!=', 1)
+                    ->with(['roleInfo', 'profile'])
+                    ->orderByDesc('id');
 
-        return DataTables::of($users)
-            ->addColumn('profile_image', function ($row) {
-                return $row->profile && $row->profile->image
-                    ? '<img src="' . asset($row->profile->image) . '" width="60" class="rounded-circle">'
-                    : '<span class="text-muted">No Image</span>';
-            })
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('role')) {
+            $query->where('role', $request->role);
+        }
+
+        if ($request->filled('from_date') && $request->filled('to_date')) {
+            $query->whereBetween('created_at', [
+                $request->from_date . ' 00:00:00',
+                $request->to_date . ' 23:59:59'
+            ]);
+        }
+
+        return DataTables::of($query)
             ->addColumn('role', function ($row) {
-                return $row->role->pluck('name') ?: '<span class="text-muted">No Role</span>';
+                return ($row->roleInfo && $row->roleInfo->name)
+                    ? $row->roleInfo->name
+                    : '<span class="text-muted">No Role</span>';
             })
             ->addColumn('status', function ($row) {
-                $badgeClass = $row->status ? 'success' : 'danger';
-                $text = $row->status ? 'Active' : 'Inactive';
-                return '<button class="btn btn-sm btn-' . $badgeClass . ' toggleUserStatus" data-id="' . $row->id . '">' . $text . '</button>';
+                $checked = $row->status ? 'checked' : '';
+                return '
+                    <label class="switch">
+                        <input type="checkbox" class="toggleUsersStatus" data-id="' . $row->id . '" ' . $checked . '>
+                        <span class="slider round" title="Click to toggle status"></span>
+                    </label>
+                ';
+            })
+            ->addColumn('created_at', function ($row) {
+                return $row->created_at ? $row->created_at->format('d M, Y h:i A') : '-';
+            })
+            ->addColumn('image', function ($row) {
+                $profileImage = ($row->profile && $row->profile->pic) ? $row->profile->pic : 'assets/imgs/default.png';
+                $imageUrl = asset($profileImage);
+
+                return '<img
+                            data-src="' . $imageUrl . '"
+                            src="' . asset('assets/imgs/placeholder.jpg') . '"
+                            class="lazy-image rounded-circle"
+                            width="80"
+                            height="70"
+                            alt="User Image"
+                        />';
             })
             ->addColumn('action', function ($row) {
                 $edit = '<a href="' . route('admin.users.edit', $row->id) . '" class="btn btn-sm btn-info">
                             <i class="la la-pencil"></i>
                         </a>';
-                $delete = '<button class="btn btn-sm btn-danger deleteUser" data-id="' . $row->id . '">
+                $delete = '<button class="btn btn-sm btn-danger deleteUsers" data-id="' . $row->id . '">
                             <i class="la la-trash"></i>
                         </button>';
                 return $edit . ' ' . $delete;
             })
-            ->rawColumns(['profile_image', 'role', 'status', 'action'])
+            ->rawColumns(['status', 'action', 'image'])
             ->make(true);
     }
 
@@ -64,7 +101,8 @@ class UsersController extends Controller
      */
     public function create()
     {
-        return view('admin.users.create');
+        $roles = Role::where('name', '!=', 'super_admin')->get();
+        return view('admin.users.create', compact('roles'));
     }
 
     /**
@@ -78,10 +116,33 @@ class UsersController extends Controller
     {
         $data = $request->validated();
 
+        // 1️⃣ Create user
         $data['password'] = bcrypt($data['password']);
         $user = User::create($data);
 
-        return redirect('admin/users')->with('flash_message', 'User added successfully!');
+        // 2️⃣ Handle profile data
+        $profileData = [
+            'dob'     => $request->dob,
+            'bio'     => $request->bio,
+            'gender'  => $request->gender,
+            'country' => $request->country,
+            'state'   => $request->state,
+            'city'    => $request->city,
+            'address' => $request->address,
+            'postal'  => $request->postal,
+        ];
+
+        // 3️⃣ Handle file upload (pic)
+        if ($request->hasFile('pic')) {
+            $profileData['pic'] = $this->uploadFile($request->file('pic'), 'uploads/profile_pics/', 'users');
+        }
+
+        // 4️⃣ Save profile
+        $user->profile()->create($profileData);
+
+        log_activity('create', User::class, $user->id, 'Created a new user: ' . $user->name, ['user' => $user->only(['id', 'name', 'email', 'role'])]);
+
+        return redirect('admin/users')->with('message', 'User added successfully!');
     }
 
     /**
@@ -107,9 +168,9 @@ class UsersController extends Controller
      */
     public function edit($id)
     {
-        $user = User::with('roles')->select('id', 'name', 'email')->findOrFail($id);
-
-        return view('admin.users.edit', compact('user'));
+        $user = User::with('roleInfo', 'profile')->findOrFail($id);
+        $roles = Role::where('name', '!=', 'super_admin')->get();
+        return view('admin.users.edit', compact('user', 'roles'));
     }
 
     /**
@@ -123,19 +184,43 @@ class UsersController extends Controller
 
     public function update(UpdateUserRequest $request, $id)
     {
-        $data = $request->validated();
+        $user = User::with('profile')->findOrFail($id);
 
-        // Handle password only if provided
-        if (!empty($data['password'])) {
-            $data['password'] = bcrypt($data['password']);
-        } else {
-            unset($data['password']);
+        $oldData = $user->toArray();
+
+        // ✅ Update user fields
+        $user->fill([
+            'name' => $request->name,
+            'email' => $request->email,
+            'role' => $request->role,
+        ]);
+
+        if ($request->filled('password')) {
+            $user->password = bcrypt($request->password);
         }
 
-        $user = User::findOrFail($id);
-        $user->update($data);
+        $user->save();
 
-        return redirect('admin/users')->with('flash_message', 'User updated successfully!');
+        // ✅ Handle profile data
+        $profileData = $request->only([
+            'dob', 'bio', 'gender', 'country', 'state', 'city', 'address', 'postal'
+        ]);
+
+        if ($request->hasFile('pic')) {
+            $profileData['pic'] = $this->uploadFile($request->file('pic'), 'uploads/profile_pics/', 'users');
+        }
+
+        $user->profile()->updateOrCreate(['user_id' => $user->id], $profileData);
+
+        log_activity('update', User::class, $user->id,
+            'Updated user: ' . $user->name,
+            [
+                'before' => $oldData,
+                'after' => $user->toArray()
+            ]
+        );
+
+        return redirect()->route('admin.users.index')->with('message', 'User updated successfully!');
     }
 
     /**
@@ -145,11 +230,11 @@ class UsersController extends Controller
      *
      * @return void
      */
-    public function destroy($id)
+    public function destroy(User $user)
     {
-        User::destroy($id);
-
-        return redirect('admin/users')->with('flash_message', 'User deleted!');
+        $user->delete();
+        log_activity('delete', User::class, $user->id, "Deleted user {$user->name}");
+        return response()->json(['success' => 'User deleted successfully.']);
     }
 
     public function getSettings(){
@@ -210,6 +295,131 @@ class UsersController extends Controller
 
         Session::flash('message','Account has been updated');
         return redirect()->back();
+    }
+
+    public function toggleStatus($id)
+    {
+        $user = User::findOrFail($id);
+        $oldStatus = $user->status;
+        $user->status = !$user->status;
+        $user->save();
+
+        log_activity('status_toggle', User::class, $user->id,
+            'Toggled user status for ' . $user->name . ' from ' . ($oldStatus ? 'Active' : 'Inactive') . ' to ' . ($user->status ? 'Active' : 'Inactive'),
+            [
+                'old_status' => $oldStatus,
+                'new_status' => $user->status
+            ]
+        );
+
+        return response()->json([
+            'success' => true,
+            'status' => $user->status ? 'Active' : 'Inactive',
+        ]);
+    }
+
+    public function trash()
+    {
+        return view('admin.users.trash');
+    }
+
+    public function getTrashedData(Request $request)
+    {
+        $users = User::onlyTrashed()->orderByDesc('id')->get();
+
+        return DataTables::of($users)
+            ->addColumn('role', function ($row) {
+                return ($row->roleInfo && $row->roleInfo->name) ? $row->roleInfo->name : '<span class="text-muted">No Role</span>';
+            })
+            ->addColumn('action', function ($row) {
+                $restore = '<button class="btn btn-sm btn-success restoreBanner" data-id="'.$row->id.'">
+                                <i class="la la-refresh"></i> Restore
+                            </button>';
+                $delete = '<button class="btn btn-sm btn-danger forceDeleteBanner" data-id="'.$row->id.'">
+                                <i class="la la-trash"></i> Delete Permanently
+                            </button>';
+                return $restore . ' ' . $delete;
+            })
+            ->rawColumns(['action'])
+            ->make(true);
+    }
+
+    public function restore($id)
+    {
+        $user = User::withTrashed()->findOrFail($id);
+        $user->restore();
+
+        log_activity('restore', User::class, $id, "Restored user {$user->name}");
+
+        return response()->json(['success' => 'User restored successfully!']);
+    }
+
+    public function forceDelete($id)
+    {
+        $user = User::withTrashed()->findOrFail($id);
+
+        if ($user->image && File::exists(public_path($user->image))) {
+            File::delete(public_path($user->image));
+        }
+
+        $user->forceDelete();
+
+        log_activity('force_delete', User::class, $id, "User {$user->name} permenantly deleted");
+
+        return response()->json(['success' => 'User permanently deleted.']);
+    }
+
+    // Bulk delete (soft delete)
+    public function bulkDelete(Request $request)
+    {
+        $ids = $request->ids;
+
+        if (!$ids || !is_array($ids)) {
+            return response()->json(['error' => 'No items selected.'], 400);
+        }
+
+        User::whereIn('id', $ids)->delete();
+
+        log_activity('bulk_delete', User::class, null, 'Bulk deleted users: ' . implode(',', $ids), ['ids' => $ids]);
+
+        return response()->json(['success' => 'Selected users deleted successfully.']);
+    }
+
+    // Bulk restore from trash
+    public function bulkRestore(Request $request)
+    {
+        $ids = $request->ids;
+
+        if (!$ids || !is_array($ids)) {
+            return response()->json(['error' => 'No items selected.'], 400);
+        }
+
+        User::withTrashed()->whereIn('id', $ids)->restore();
+
+        log_activity('bulk_restore', User::class, null, 'Bulk restored users: ' . implode(',', $ids), ['ids' => $ids]);
+
+        return response()->json(['success' => 'Selected users restored successfully.']);
+    }
+
+    // Bulk permanent delete (from trash)
+    public function bulkForceDelete(Request $request)
+    {
+        $ids = $request->ids;
+
+        if (!$ids || !is_array($ids)) {
+            return response()->json(['error' => 'No items selected.'], 400);
+        }
+
+        $users = User::withTrashed()->whereIn('id', $ids)->get();
+
+        foreach ($users as $user) {
+            $this->deleteFile($user->image);
+            $user->forceDelete();
+        }
+
+        log_activity('bulk_force_delete', User::class, null, 'Permanently deleted users: ' . implode(',', $ids), ['ids' => $ids]);
+
+        return response()->json(['success' => 'Selected users permanently deleted.']);
     }
 
 }

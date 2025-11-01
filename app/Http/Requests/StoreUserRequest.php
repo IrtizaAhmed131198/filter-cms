@@ -25,6 +25,17 @@ class StoreUserRequest extends FormRequest
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:6|confirmed', // optional: add a confirm field
+            'role' => 'required',
+            // Profile fields
+            'dob' => 'nullable|date',
+            'bio' => 'nullable|string|max:500',
+            'gender' => 'nullable|in:male,female,other',
+            'pic' => 'nullable|mimes:jpg,jpeg,png,webp|max:2048',
+            'country' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:100',
+            'city' => 'nullable|string|max:100',
+            'address' => 'nullable|string|max:255',
+            'postal' => 'nullable|string|max:20',
         ];
     }
 }
