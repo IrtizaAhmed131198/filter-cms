@@ -5,12 +5,18 @@
         <div class="content-header-left col-md-6 col-12 mb-2 breadcrumb-new">
             <h3 class="content-header-title mb-0 d-inline-block">User Management</h3>
         </div>
-        <div class="content-header-right col-md-6 col-12">
-            <div class="btn-group float-md-right">
+        <div class="btn-group float-md-right">
+            @canAccess('delete_users')
                 <button id="bulkDelete" class="btn btn-danger mr-1 mb-1">Delete Selected</button>
+            @endcanAccess
+
+            @canAccess('create_users')
                 <a class="btn btn-info mb-1" href="{{ url('admin/users/create') }}">Add User</a>
+            @endcanAccess
+
+            @canAccess('view_trash_users')
                 <a class="btn btn-warning ml-1 mb-1" href="{{ route('admin.users.trash') }}">View Trashed Users</a>
-            </div>
+            @endcanAccess
         </div>
     </div>
 
@@ -210,7 +216,7 @@
                         from_date: $('#fromDate').val(),
                         to_date: $('#toDate').val(),
                     };
-                }
+                },
             });
 
             $(document).on('mouseenter', '.toggleUsersStatus', function() {

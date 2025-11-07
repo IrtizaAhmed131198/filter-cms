@@ -73,7 +73,7 @@ class AuthenticatedSessionController extends Controller
         $user = Auth::user();
 
         // only admins allowed
-        if ($user->role != 1) {
+        if ($user->role == 3) {
             Auth::logout();
             return redirect()->route('login')->withErrors(['email' => 'Access denied.']);
         }

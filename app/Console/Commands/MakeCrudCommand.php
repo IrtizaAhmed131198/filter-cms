@@ -66,10 +66,16 @@ class MakeCrudCommand extends Command
             // ✅ 6. Register Observer
             $this->registerObserver($name);
 
-            // ✅ 7. Inject Routes
+            // ✅ 7. Create Permissions
+            $this->createPermissions($name, $lower);
+
+            // ✅ 8. Inject Routes
             $this->injectRoutes($name, $lower, $lower);
 
-            // ✅ 8. Run migration
+            // ✅ 9. Inject Sidebar Menu Item
+            $this->injectSidebarItem($name, $lower);
+
+            // ✅ 10. Run migration
             $this->info("⚙️ Running database migration...");
             Artisan::call('migrate', ['--force' => true]);
             $this->info(Artisan::output());
@@ -142,16 +148,60 @@ class MakeCrudCommand extends Command
         $this->info("🔗 {$name}Observer registered in EventServiceProvider.");
     }
 
+    // ---------- Create Permissions ----------
+    private function createPermissions($name, $lower)
+    {
+        try {
+            $permissions = [
+                "view_{$lower}"   => "View {$name}",
+                "create_{$lower}" => "Create {$name}",
+                "edit_{$lower}"   => "Edit {$name}",
+                "delete_{$lower}" => "Delete {$name}",
+                "view_trash_{$lower}" => "View Trash {$name}",
+            ];
+
+            // Ensure Permission model exists
+            if (!class_exists(\App\Models\Permission::class)) {
+                $this->warn("⚠️ Permission model not found. Skipping permission creation.");
+                return;
+            }
+
+            $permissionModel = new \App\Models\Permission;
+            $roleModel = new \App\Models\Role;
+
+            foreach ($permissions as $key => $label) {
+                $exists = $permissionModel->where('name', $key)->first();
+                if (!$exists) {
+                    $permission = $permissionModel->create([
+                        'name' => $key,
+                        'label' => $label,
+                    ]);
+                    $this->info("🔑 Created permission: {$key}");
+                }
+            }
+
+            // Assign all permissions to super_admin role automatically
+            $superAdmin = $roleModel->where('name', 'super_admin')->first();
+            if ($superAdmin) {
+                $permissionIds = $permissionModel->whereIn('name', array_keys($permissions))->pluck('id')->toArray();
+                $superAdmin->permissions()->syncWithoutDetaching($permissionIds);
+                $this->info("✅ Assigned new {$name} permissions to Super Admin role.");
+            }
+
+        } catch (\Throwable $e) {
+            $this->error("❌ Failed to create permissions: " . $e->getMessage());
+        }
+    }
+
     // ---------- ROUTE INJECTION ----------
     private function injectRoutes($name, $pluralLower, $lower)
     {
         $webPath = base_path('routes/web.php');
         $content = File::get($webPath);
 
-        // 1) ensure controller import at top
+        // Ensure controller import at top
         $useStatement = "use App\\Http\\Controllers\\Admin\\{$name}Controller;";
         if (!Str::contains($content, $useStatement)) {
-            // insert after the opening <?php (if exists) otherwise at top
             if (preg_match('/<\?php\s*/', $content, $m, PREG_OFFSET_CAPTURE)) {
                 $pos = $m[0][1] + strlen($m[0][0]);
                 $content = substr_replace($content, PHP_EOL . $useStatement . PHP_EOL, $pos, 0);
@@ -160,59 +210,66 @@ class MakeCrudCommand extends Command
             }
         }
 
-        // 2) build full route block (expandable; includes trash/restore/toggle routes example)
-            $routes = <<<ROUTES
+        // Permission key (example: manage_banners)
+        $permissionKey = "manage_{$pluralLower}";
 
-            // {$name} (resource)
-            Route::get('{$lower}/data', [{$name}Controller::class, 'getData'])->name('admin.{$lower}.data');
-            Route::post('{$lower}/{{$lower}}/toggle-status', [{$name}Controller::class, 'toggleStatus'])->name('admin.{$lower}.toggleStatus');
-            Route::get('{$lower}/trash', [{$name}Controller::class, 'trash'])->name('admin.{$lower}.trash');
-            Route::get('{$lower}/trash/data', [{$name}Controller::class, 'getTrashedData'])->name('admin.{$lower}.trash.data');
-            Route::post('{$lower}/{id}/restore', [{$name}Controller::class, 'restore'])->name('admin.{$lower}.restore');
-            Route::delete('{$lower}/{id}/force-delete', [{$name}Controller::class, 'forceDelete'])->name('admin.{$lower}.forceDelete');
-            Route::delete('{$lower}/bulk-delete', [{$name}Controller::class, 'bulkDelete'])->name('admin.{$lower}.bulkDelete');
-            Route::post('{$lower}/bulk-restore', [{$name}Controller::class, 'bulkRestore'])->name('admin.{$lower}.bulkRestore');
-            Route::delete('{$lower}/bulk-force-delete', [{$name}Controller::class, 'bulkForceDelete'])->name('admin.{$lower}.bulkForceDelete');
-            Route::post('admin/{$lower}/sort', [{$name}Controller::class, 'sort'])->name('admin.{$lower}.sort');
-            Route::resource('{$lower}', {$name}Controller::class)->names('admin.{$lower}');
+        // Automatically create permission in DB (if exists)
+        try {
+            \App\Models\Permission::firstOrCreate(
+                ['name' => $permissionKey],
+                ['label' => "Manage {$name}"]
+            );
+            $this->info("🔑 Permission '{$permissionKey}' added to permissions table.");
+        } catch (\Throwable $e) {
+            $this->warn("⚠️ Could not auto-insert permission ({$e->getMessage()})");
+        }
+
+        // Build route block with middleware
+        $routes = <<<ROUTES
+
+            // 🧩 {$name} Management
+            Route::middleware('permission:{$permissionKey}')->group(function () {
+                Route::get('{$lower}/data', [{$name}Controller::class, 'getData'])->name('admin.{$lower}.data');
+                Route::post('{$lower}/{{$lower}}/toggle-status', [{$name}Controller::class, 'toggleStatus'])->name('admin.{$lower}.toggleStatus');
+                Route::get('{$lower}/trash', [{$name}Controller::class, 'trash'])->name('admin.{$lower}.trash');
+                Route::get('{$lower}/trash/data', [{$name}Controller::class, 'getTrashedData'])->name('admin.{$lower}.trash.data');
+                Route::post('{$lower}/{id}/restore', [{$name}Controller::class, 'restore'])->name('admin.{$lower}.restore');
+                Route::delete('{$lower}/{id}/force-delete', [{$name}Controller::class, 'forceDelete'])->name('admin.{$lower}.forceDelete');
+                Route::delete('{$lower}/bulk-delete', [{$name}Controller::class, 'bulkDelete'])->name('admin.{$lower}.bulkDelete');
+                Route::post('{$lower}/bulk-restore', [{$name}Controller::class, 'bulkRestore'])->name('admin.{$lower}.bulkRestore');
+                Route::delete('{$lower}/bulk-force-delete', [{$name}Controller::class, 'bulkForceDelete'])->name('admin.{$lower}.bulkForceDelete');
+                Route::post('admin/{$lower}/sort', [{$name}Controller::class, 'sort'])->name('admin.{$lower}.sort');
+                Route::resource('{$lower}', {$name}Controller::class)->names('admin.{$lower}');
+            });
 
         ROUTES;
 
-        // 3) Try to insert routes before the final require __DIR__... (and specifically before the admin group's closing "});")
+        // Insert routes before admin group close
         $requirePos = strpos($content, "require __DIR__");
         if ($requirePos !== false) {
-            // find the last "});" that appears *before* the require statement
             $beforeRequire = substr($content, 0, $requirePos);
             $lastClosePos = strrpos($beforeRequire, "});");
-
             if ($lastClosePos !== false) {
-                // insert route block right before that "});"
                 $newBefore = substr_replace($beforeRequire, $routes, $lastClosePos, 0);
                 $afterRequire = substr($content, $requirePos);
                 $content = $newBefore . $afterRequire;
             } else {
-                // fallback: insert directly before the require line
                 $content = substr_replace($content, $routes, $requirePos, 0);
             }
         } else {
-            // if require not found, append routes at end (last resort)
             if (!Str::contains($content, $routes)) {
                 $content .= PHP_EOL . $routes;
             }
         }
 
-        // 4) avoid duplicate insertion: if block already exists don't write duplicate
-        // (simple check based on presence of the resource route line)
         if (Str::contains(File::get($webPath), "Route::resource('{$lower}', {$name}Controller::class)")) {
-            $this->info("ℹ️ Routes for {$name} already present in web.php — no changes made.");
-            // still write back the use statement changes (if any) — rewrite only the top import changes:
+            $this->info("ℹ️ Routes for {$name} already exist — skipped duplicate insertion.");
             File::put($webPath, $content);
             return;
         }
 
-        // write final file
         File::put($webPath, $content);
-        $this->info("🛣️ Routes for {$name} added in web.php");
+        $this->info("🛣️ Permission-based routes for {$name} added in web.php");
     }
 
     // ---------- FILE TEMPLATES ----------
@@ -381,247 +438,306 @@ PHP;
 private function getControllerTemplate($name, $plural, $lower, $pluralLower)
 {
     return <<<PHP
-        <?php
+<?php
 
-        namespace App\\Http\\Controllers\\Admin;
+namespace App\\Http\\Controllers\\Admin;
 
-        use App\\Http\\Controllers\\Controller;
-        use App\\Models\\{$name};
-        use Illuminate\\Http\\Request;
-        use Yajra\\DataTables\\Facades\\DataTables;
-        use Illuminate\\Support\\Facades\\File;
-        use App\\Http\\Requests\\Store{$name}Request;
-        use App\\Http\\Requests\\Update{$name}Request;
-        use App\\Traits\\FileUploadTrait;
+use App\\Http\\Controllers\\Controller;
+use App\\Models\\{$name};
+use Illuminate\\Http\\Request;
+use Yajra\\DataTables\\Facades\\DataTables;
+use Illuminate\\Support\\Facades\\File;
+use App\\Http\\Requests\\Store{$name}Request;
+use App\\Http\\Requests\\Update{$name}Request;
+use App\\Traits\\FileUploadTrait;
 
-        class {$name}Controller extends Controller
-        {
-            use FileUploadTrait;
+class {$name}Controller extends Controller
+{
+    use FileUploadTrait;
 
-            public function index()
-            {
-                return view('admin.{$pluralLower}.index');
-            }
+    public function index()
+    {
+        return view('admin.{$pluralLower}.index');
+    }
 
-            public function getData(Request \$request)
-            {
-                \$query = {$name}::orderBy('sort_order', 'asc');
+    public function getData(Request \$request)
+    {
+        \$query = {$name}::orderBy('sort_order', 'asc');
 
-                // Optional filters
-                if (\$request->filled('status')) {
-                    \$query->where('status', \$request->status);
+        // Optional filters
+        if (\$request->filled('status')) {
+            \$query->where('status', \$request->status);
+        }
+
+        if (\$request->filled('from_date') && \$request->filled('to_date')) {
+            \$query->whereBetween('created_at', [
+                \$request->from_date . ' 00:00:00',
+                \$request->to_date . ' 23:59:59'
+            ]);
+        }
+
+        return DataTables::of(\$query)
+            ->addColumn('image', function (\$row) {
+                if (!\$row->image) {
+                    return '<span class="text-muted">No Image</span>';
                 }
-
-                if (\$request->filled('from_date') && \$request->filled('to_date')) {
-                    \$query->whereBetween('created_at', [
-                        \$request->from_date . ' 00:00:00',
-                        \$request->to_date . ' 23:59:59'
-                    ]);
+                // Lazy loading image
+                return '<img data-src="'.asset(\$row->image).'" class="lazy-load" width="120" />';
+            })
+            ->addColumn('status', function (\$row) {
+                \$checked = \$row->status ? 'checked' : '';
+                return '
+                    <label class="switch">
+                        <input type="checkbox" class="toggle{$name}Status" data-id="' . \$row->id . '" ' . \$checked . '>
+                        <span class="slider round" title="Click to toggle status"></span>
+                    </label>
+                ';
+            })
+            ->addColumn('created_at', function (\$row) {
+                return \$row->created_at ? \$row->created_at->format('d M, Y h:i A') : '-';
+            })
+            ->addColumn('action', function (\$row) {
+                \$actions = '';
+                if (auth()->user()->hasPermission('edit_{$lower}')) {
+                    \$actions .= '<a href="'.url('admin/{$lower}/'.\$row->id.'/edit').'"
+                                    class="btn btn-sm btn-info"
+                                    title="Edit {$name}">
+                                    <i class="la la-pencil"></i>
+                                  </a> ';
                 }
-
-                return DataTables::of(\$query)
-                    ->addColumn('image', function (\$row) {
-                        if (!\$row->image) {
-                            return '<span class="text-muted">No Image</span>';
-                        }
-                        // Lazy loading image
-                        return '<img data-src="'.asset(\$row->image).'" class="lazy-load" width="120" />';
-                    })
-                    ->addColumn('status', function (\$row) {
-                        \$checked = \$row->status ? 'checked' : '';
-                        return '
-                            <label class="switch">
-                                <input type="checkbox" class="toggle{$name}Status" data-id="' . \$row->id . '" ' . \$checked . '>
-                                <span class="slider round" title="Click to toggle status"></span>
-                            </label>
-                        ';
-                    })
-                    ->addColumn('created_at', function (\$row) {
-                        return \$row->created_at ? \$row->created_at->format('d M, Y h:i A') : '-';
-                    })
-                    ->addColumn('action', function (\$row) {
-                        \$edit = '<a href="'.url('admin/{$lower}/'.\$row->id.'/edit').'" class="btn btn-sm btn-info"><i class="la la-pencil"></i></a>';
-                        \$delete = '<button class="btn btn-sm btn-danger delete{$name}" data-id="'.\$row->id.'"><i class="la la-trash"></i></button>';
-                        return \$edit . ' ' . \$delete;
-                    })
-                    ->rawColumns(['image', 'status', 'action'])
-                    ->make(true);
-            }
-
-            public function create()
-            {
-                return view('admin.{$pluralLower}.create');
-            }
-
-            public function store(Store{$name}Request \$request)
-            {
-                \$data = \$request->validated();
-
-                if (\$request->hasFile('image')) {
-                    \$data['image'] = \$this->uploadFile(\$request->file('image'), 'uploads/{$pluralLower}/', '{$lower}');
+                if (auth()->user()->hasPermission('delete_{$lower}')) {
+                    \$actions .= '<button class="btn btn-sm btn-danger delete{$name}"
+                                    data-id="'.\$row->id.'"
+                                    title="Delete {$name}">
+                                    <i class="la la-trash"></i>
+                                  </button>';
                 }
+                return \$actions ?: '<span class="text-muted">No actions</span>';
+            })
+            ->rawColumns(['image', 'status', 'action'])
+            ->make(true);
+    }
 
-                \$item = {$name}::create(\$data);
+    public function create()
+    {
+        return view('admin.{$pluralLower}.create');
+    }
 
-                log_activity('create', {$name}::class, \$item->id, 'Created new {$lower}: ' . (\$item->title ?? 'N/A'));
+    public function store(Store{$name}Request \$request)
+    {
+        \$data = \$request->validated();
 
-                return redirect('admin/{$lower}')
-                    ->with('message', '{$name} added successfully!');
-            }
+        if (\$request->hasFile('image')) {
+            \$data['image'] = \$this->uploadFile(\$request->file('image'), 'uploads/{$pluralLower}/', '{$lower}');
+        }
 
-            public function show({$name} \${$lower})
-            {
-                return view('admin.{$pluralLower}.show', compact('{$lower}'));
-            }
+        \$item = {$name}::create(\$data);
 
-            public function edit({$name} \${$lower})
-            {
-                return view('admin.{$pluralLower}.edit', compact('{$lower}'));
-            }
+        log_activity('create', {$name}::class, \$item->id, 'Created new {$lower}: ' . (\$item->title ?? 'N/A'));
 
-            public function update(Update{$name}Request \$request, {$name} \${$lower})
-            {
-                \$data = \$request->validated();
+        return redirect('admin/{$lower}')
+            ->with('message', '{$name} added successfully!');
+    }
 
-                if (\$request->hasFile('image')) {
-                    \$this->deleteFile(\${$lower}->image);
-                    \$data['image'] = \$this->uploadFile(\$request->file('image'), 'uploads/{$pluralLower}/', '{$lower}');
-                }
+    public function show({$name} \${$lower})
+    {
+        return view('admin.{$pluralLower}.show', compact('{$lower}'));
+    }
 
-                \$oldData = \${$lower}->toArray();
-                \${$lower}->update(\$data);
+    public function edit({$name} \${$lower})
+    {
+        return view('admin.{$pluralLower}.edit', compact('{$lower}'));
+    }
 
-                log_activity('update', {$name}::class, \${$lower}->id, 'Updated {$lower}', [
-                    'before' => \$oldData,
-                    'after' => \${$lower}->toArray()
-                ]);
+    public function update(Update{$name}Request \$request, {$name} \${$lower})
+    {
+        \$data = \$request->validated();
 
-                return redirect()->route('admin.{$lower}.index')->with('message', '{$name} updated successfully!');
-            }
+        if (\$request->hasFile('image')) {
+            \$this->deleteFile(\${$lower}->image);
+            \$data['image'] = \$this->uploadFile(\$request->file('image'), 'uploads/{$pluralLower}/', '{$lower}');
+        }
 
-            public function destroy({$name} \${$lower})
-            {
-                \${$lower}->delete();
-                log_activity('delete', {$name}::class, \${$lower}->id, "Deleted {$lower}");
-                return response()->json(['success' => '{$name} deleted successfully.']);
-            }
+        \$oldData = \${$lower}->toArray();
+        \${$lower}->update(\$data);
 
-            public function toggleStatus({$name} \${$lower})
-            {
-                \$oldStatus = \${$lower}->status;
-                \${$lower}->status = !\$oldStatus;
-                \${$lower}->save();
+        log_activity('update', {$name}::class, \${$lower}->id, 'Updated {$lower}', [
+            'before' => \$oldData,
+            'after' => \${$lower}->toArray()
+        ]);
 
-                log_activity('status_toggle', {$name}::class, \${$lower}->id, 'Toggled status', [
-                    'old_status' => \$oldStatus,
-                    'new_status' => \${$lower}->status
-                ]);
+        return redirect()->route('admin.{$lower}.index')->with('message', '{$name} updated successfully!');
+    }
 
-                return response()->json([
-                    'success' => true,
-                    'status' => \${$lower}->status ? 'Active' : 'Inactive',
-                ]);
-            }
+    public function destroy({$name} \${$lower})
+    {
+        \${$lower}->delete();
+        log_activity('delete', {$name}::class, \${$lower}->id, "Deleted {$lower}");
+        return response()->json(['success' => '{$name} deleted successfully.']);
+    }
 
-            public function trash()
-            {
-                return view('admin.{$pluralLower}.trash');
-            }
+    public function toggleStatus({$name} \${$lower})
+    {
+        \$oldStatus = \${$lower}->status;
+        \${$lower}->status = !\$oldStatus;
+        \${$lower}->save();
 
-            public function getTrashedData(Request \$request)
-            {
-                \$items = {$name}::onlyTrashed()->orderByDesc('id')->get();
+        log_activity('status_toggle', {$name}::class, \${$lower}->id, 'Toggled status', [
+            'old_status' => \$oldStatus,
+            'new_status' => \${$lower}->status
+        ]);
 
-                return DataTables::of(\$items)
-                    ->addColumn('checkbox', fn(\$row) =>
-                        '<input type="checkbox" class="rowCheckbox" value="'.\$row->id.'">'
-                    )
-                    ->addColumn('image', function(\$row) {
-                        return \$row->image
-                            ? '<img data-src="'.asset(\$row->image).'" class="lazy-load" width="120" />'
-                            : '<span class="text-muted">No Image</span>';
-                    })
-                    ->addColumn('action', function(\$row) {
-                        \$restore = '<button class="btn btn-sm btn-success restore{$name}" data-id="'.\$row->id.'"><i class="la la-refresh"></i></button>';
-                        \$delete = '<button class="btn btn-sm btn-danger forceDelete{$name}" data-id="'.\$row->id.'"><i class="la la-trash"></i></button>';
-                        return \$restore . ' ' . \$delete;
-                    })
-                    ->rawColumns(['checkbox', 'image', 'action'])
-                    ->make(true);
-            }
+        return response()->json([
+            'success' => true,
+            'status' => \${$lower}->status ? 'Active' : 'Inactive',
+        ]);
+    }
 
-            public function restore(\$id)
-            {
-                \$item = {$name}::withTrashed()->findOrFail(\$id);
-                \$item->restore();
-                log_activity('restore', {$name}::class, \$id, "Restored {$lower}");
-                return response()->json(['success' => '{$name} restored successfully!']);
-            }
+    public function trash()
+    {
+        return view('admin.{$pluralLower}.trash');
+    }
 
-            public function forceDelete(\$id)
-            {
-                \$item = {$name}::withTrashed()->findOrFail(\$id);
-                \$this->deleteFile(\$item->image);
-                \$item->forceDelete();
+    public function getTrashedData(Request \$request)
+    {
+        \$items = {$name}::onlyTrashed()->orderByDesc('id')->get();
 
-                log_activity('force_delete', {$name}::class, \$id, "Permanently deleted {$lower}");
-                return response()->json(['success' => '{$name} permanently deleted.']);
-            }
+        return DataTables::of(\$items)
+            ->addColumn('checkbox', fn(\$row) =>
+                '<input type="checkbox" class="rowCheckbox" value="'.\$row->id.'">'
+            )
+            ->addColumn('image', function(\$row) {
+                return \$row->image
+                    ? '<img data-src="'.asset(\$row->image).'" class="lazy-load" width="120" />'
+                    : '<span class="text-muted">No Image</span>';
+            })
+            ->addColumn('action', function(\$row) {
+                \$restore = '<button class="btn btn-sm btn-success restore{$name}" data-id="'.\$row->id.'"><i class="la la-refresh"></i></button>';
+                \$delete = '<button class="btn btn-sm btn-danger forceDelete{$name}" data-id="'.\$row->id.'"><i class="la la-trash"></i></button>';
+                return \$restore . ' ' . \$delete;
+            })
+            ->rawColumns(['checkbox', 'image', 'action'])
+            ->make(true);
+    }
 
-            public function bulkDelete(Request \$request)
-            {
-                \$ids = \$request->ids ?? [];
-                if (empty(\$ids)) return response()->json(['error' => 'No items selected.'], 400);
+    public function restore(\$id)
+    {
+        \$item = {$name}::withTrashed()->findOrFail(\$id);
+        \$item->restore();
+        log_activity('restore', {$name}::class, \$id, "Restored {$lower}");
+        return response()->json(['success' => '{$name} restored successfully!']);
+    }
 
-                {$name}::whereIn('id', \$ids)->delete();
-                log_activity('bulk_delete', {$name}::class, null, 'Bulk delete', ['ids' => \$ids]);
-                return response()->json(['success' => 'Selected {$pluralLower} deleted successfully.']);
-            }
+    public function forceDelete(\$id)
+    {
+        \$item = {$name}::withTrashed()->findOrFail(\$id);
+        \$this->deleteFile(\$item->image);
+        \$item->forceDelete();
 
-            public function bulkRestore(Request \$request)
-            {
-                \$ids = \$request->ids ?? [];
-                if (empty(\$ids)) return response()->json(['error' => 'No items selected.'], 400);
+        log_activity('force_delete', {$name}::class, \$id, "Permanently deleted {$lower}");
+        return response()->json(['success' => '{$name} permanently deleted.']);
+    }
 
-                {$name}::withTrashed()->whereIn('id', \$ids)->restore();
-                log_activity('bulk_restore', {$name}::class, null, 'Bulk restore', ['ids' => \$ids]);
-                return response()->json(['success' => 'Selected {$pluralLower} restored successfully.']);
-            }
+    public function bulkDelete(Request \$request)
+    {
+        \$ids = \$request->ids ?? [];
+        if (empty(\$ids)) return response()->json(['error' => 'No items selected.'], 400);
 
-            public function bulkForceDelete(Request \$request)
-            {
-                \$ids = \$request->ids ?? [];
-                if (empty(\$ids)) return response()->json(['error' => 'No items selected.'], 400);
+        {$name}::whereIn('id', \$ids)->delete();
+        log_activity('bulk_delete', {$name}::class, null, 'Bulk delete', ['ids' => \$ids]);
+        return response()->json(['success' => 'Selected {$pluralLower} deleted successfully.']);
+    }
 
-                \$items = {$name}::withTrashed()->whereIn('id', \$ids)->get();
-                foreach (\$items as \$item) {
-                    \$this->deleteFile(\$item->image);
-                    \$item->forceDelete();
-                }
+    public function bulkRestore(Request \$request)
+    {
+        \$ids = \$request->ids ?? [];
+        if (empty(\$ids)) return response()->json(['error' => 'No items selected.'], 400);
 
-                log_activity('bulk_force_delete', {$name}::class, null, 'Bulk permanently delete', ['ids' => \$ids]);
-                return response()->json(['success' => 'Selected {$pluralLower} permanently deleted.']);
-            }
+        {$name}::withTrashed()->whereIn('id', \$ids)->restore();
+        log_activity('bulk_restore', {$name}::class, null, 'Bulk restore', ['ids' => \$ids]);
+        return response()->json(['success' => 'Selected {$pluralLower} restored successfully.']);
+    }
 
-            public function sort(Request \$request)
-            {
-                \$order = \$request->input('order', []);
-                if (!is_array(\$order) || empty(\$order)) {
-                    return response()->json(['success' => false, 'message' => 'No order data received'], 400);
-                }
+    public function bulkForceDelete(Request \$request)
+    {
+        \$ids = \$request->ids ?? [];
+        if (empty(\$ids)) return response()->json(['error' => 'No items selected.'], 400);
 
-                foreach (\$order as \$item) {
-                    \$pos = \$item['position'] ?? \$item['newPosition'] ?? null;
-                    \$id  = \$item['id'] ?? null;
-                    if (\$id && \$pos !== null) {
-                        {$name}::where('id', \$id)->update(['sort_order' => (int)\$pos]);
-                    }
-                }
+        \$items = {$name}::withTrashed()->whereIn('id', \$ids)->get();
+        foreach (\$items as \$item) {
+            \$this->deleteFile(\$item->image);
+            \$item->forceDelete();
+        }
 
-                return response()->json(['success' => true, 'message' => 'Order updated successfully']);
+        log_activity('bulk_force_delete', {$name}::class, null, 'Bulk permanently delete', ['ids' => \$ids]);
+        return response()->json(['success' => 'Selected {$pluralLower} permanently deleted.']);
+    }
+
+    public function sort(Request \$request)
+    {
+        \$order = \$request->input('order', []);
+        if (!is_array(\$order) || empty(\$order)) {
+            return response()->json(['success' => false, 'message' => 'No order data received'], 400);
+        }
+
+        foreach (\$order as \$item) {
+            \$pos = \$item['position'] ?? \$item['newPosition'] ?? null;
+            \$id  = \$item['id'] ?? null;
+            if (\$id && \$pos !== null) {
+                {$name}::where('id', \$id)->update(['sort_order' => (int)\$pos]);
             }
         }
-    PHP;
+
+        return response()->json(['success' => true, 'message' => 'Order updated successfully']);
+    }
+}
+PHP;
 }
 
+    private function injectSidebarItem($studly, $lower)
+    {
+        $sidebarFile = resource_path('views/layouts/admin/sidebar.blade.php');
+
+        if (!File::exists($sidebarFile)) {
+            $this->warn("⚠️ Sidebar file not found: {$sidebarFile}");
+            return;
+        }
+
+        $content = File::get($sidebarFile);
+
+        // 🧠 Strong duplicate prevention: detect either url() or routeIs() usage
+        if (Str::contains($content, "admin/{$lower}") || Str::contains($content, "admin.{$lower}.")) {
+            $this->warn("⚠️ Sidebar menu for {$studly} already exists. Skipping injection.");
+            return;
+        }
+
+        $this->line("📄 Sidebar content:\n" . $content);
+
+        // 🧩 Sidebar menu item
+        $menuBlock = <<<BLADE
+
+        {{-- {$studly} --}}
+        @canAccess('view_{$lower}')
+        <li class="nav-item {{ request()->routeIs('admin.{$lower}.*') ? 'active' : '' }}">
+            <a href="{{ route('admin.{$lower}.index') }}">
+                <i class="la la-cube"></i>
+                <span class="menu-title">{$studly}</span>
+            </a>
+        </li>
+        @endcanAccess
+
+        BLADE;
+
+        // Find the "Account Settings" marker to inject before
+        $insertBefore = "{{-- Account Settings --}}";
+
+        if (Str::contains($content, $insertBefore)) {
+            $content = str_replace($insertBefore, $menuBlock . PHP_EOL . $insertBefore, $content);
+            File::put($sidebarFile, $content);
+            $this->info("✅ Sidebar menu for {$studly} added successfully before Account Settings");
+        } else {
+            $this->warn("⚠️ Couldn't find 'Account Settings' marker. Appending at the end of file.");
+            File::append($sidebarFile, $menuBlock);
+        }
+    }
 }

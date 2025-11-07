@@ -53,9 +53,20 @@ class BannerController extends Controller
                 return $row->created_at ? $row->created_at->format('d M, Y h:i A') : '-';
             })
             ->addColumn('action', function ($row) {
-                $edit = '<a href="'.url('admin/banner/'.$row->id.'/edit').'" class="btn btn-sm btn-info"><i class="la la-pencil"></i></a>';
-                $delete = '<button class="btn btn-sm btn-danger deleteBanner" data-id="'.$row->id.'"><i class="la la-trash"></i></button>';
-                return $edit . ' ' . $delete;
+                $actions = '';
+                if (auth()->user()->hasPermission('edit_banner')) {
+                    $actions .= '<a href="' . route('admin.banner.edit', $row->id) . '"
+                                    class="btn btn-sm btn-info" title="Edit User">
+                                    <i class="la la-pencil"></i>
+                                </a> ';
+                }
+                if (auth()->user()->hasPermission('delete_banner')) {
+                    $actions .= '<button class="btn btn-sm btn-danger deleteBanner"
+                                    data-id="' . $row->id . '" title="Delete User">
+                                    <i class="la la-trash"></i>
+                                </button>';
+                }
+                return $actions ?: '<span class="text-muted">No actions</span>';
             })
             ->rawColumns(['image', 'status', 'action'])
             ->make(true);

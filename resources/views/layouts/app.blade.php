@@ -15,7 +15,7 @@
     <meta name="author" content="Admin Mintone">
     <!-- Favicon icon -->
     <link rel="icon" type="image/png" sizes="16x16" href="{{asset(!empty($favicon->img_path)?$favicon->img_path:'')}}">
-    <title>{{ config('app.name') }}</title>
+    <title>{{ config('app.name') }} - Admin Panel</title>
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,600,600i,700,700i%7CQuicksand:300,400,500,700" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="{{asset('assets/css/vendors.min.css')}}">
     <!-- BEGIN: Theme CSS-->
@@ -33,19 +33,12 @@
     <link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="{{ asset('assets/css/datatables.min.css') }}">
     <link rel="stylesheet" href="https://cdn.datatables.net/rowreorder/1.3.3/css/rowReorder.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     @stack('before-css')
     <link href="{{asset('assets/css/custom.css')}}" rel="stylesheet">
    <script src="{{ asset('vendor/unisharp/laravel-ckeditor/ckeditor.js') }}"></script>
-    <!-- Custom CSS -->
-    <!-- <link href="{{asset('assets/css/style.css')}}" rel="stylesheet"> -->
-    <!-- <link href="{{asset('assets/css/responsive.css')}}" rel="stylesheet"> -->
-    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
-    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
-    <!--[if lt IE 9]>
-    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-    <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
-    <![endif]-->
+
     @stack('after-css')
 
 </head>
@@ -78,17 +71,14 @@
 <script src="{{ asset('assets/js/datatables.min.js') }}"></script>
 <script src="{{asset('plugins/components/toast-master/js/jquery.toast.js')}}"></script>
 <script src="https://cdn.datatables.net/rowreorder/1.3.3/js/dataTables.rowReorder.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.flash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
 <!-- END: Theme JS-->
-<<!-- script src="{{asset('plugins/vendors/jquery/jquery.min.js')}}"></script>
-<script src="{{asset('plugins/vendors/jquery/spartan-multi-image-picker.min.js')}}"></script>
-<script src="{{asset('plugins/vendors/bootstrap/js/popper.min.js')}}"></script>
-<script src="{{asset('plugins/vendors/bootstrap/js/bootstrap.min.js')}}"></script>
-<script src="{{asset('plugins/vendors/ps/perfect-scrollbar.jquery.min.js')}}"></script>
-<script src="{{asset('assets/js/waves.js')}}"></script>
-<script src="{{asset('assets/js/sidebarmenu.js')}}"></script>
-<script src="{{asset('assets/js/custom.min.js')}}"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
-<script type="text/javascript" src="{{ asset('assets/js/edituser.js') }}"></script> -->
 
 <script src="{{ asset('js/crud-manager.js') }}"></script>
 <script src="{{ asset('js/toast.js') }}"></script>

@@ -74,9 +74,17 @@ class MakeCrudViews extends Command
                 </div>
                 <div class="content-header-right col-md-6 col-12">
                     <div class="btn-group float-md-right">
-                        <button id="bulkDelete" class="btn btn-danger mr-1 mb-1">Delete Selected</button>
-                        <a class="btn btn-info mb-1" href="{{ url('admin/{$lower}/create') }}">Add {$studly}</a>
-                        <a class="btn btn-warning ml-1 mb-1" href="{{ route('admin.{$lower}.trash') }}">View Trashed {$studly}s</a>
+                        @canAccess('delete_{$lower}')
+                            <button id="bulkDelete" class="btn btn-danger mr-1 mb-1">Delete Selected</button>
+                        @endcanAccess
+
+                        @canAccess('create_{$lower}')
+                            <a class="btn btn-info mb-1" href="{{ url('admin/{$lower}/create') }}">Add {$studly}</a>
+                        @endcanAccess
+
+                        @canAccess('view_trash_{$lower}')
+                            <a class="btn btn-warning ml-1 mb-1" href="{{ route('admin.{$lower}.trash') }}">View Trashed {$studly}s</a>
+                        @endcanAccess
                     </div>
                 </div>
             </div>

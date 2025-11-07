@@ -28,9 +28,14 @@ class PageController extends Controller
 
         return DataTables::of($pages)
             ->addColumn('action', function ($row) {
-                $edit = '<a href="' . route('admin.pages.edit', $row->id) . '" class="btn btn-sm btn-info"><i class="la la-pencil"></i></a>';
-                $delete = '<button class="btn btn-sm btn-danger deletePages" data-id="' . $row->id . '"><i class="la la-trash"></i></button>';
-                return $edit . ' ' . $delete;
+                $actions = '';
+                if (auth()->user()->hasPermission('edit_pages')) {
+                    $actions .= '<a href="' . route('admin.pages.edit', $row->id) . '" class="btn btn-sm btn-info"><i class="la la-pencil"></i></a>';
+                }
+                if (auth()->user()->hasPermission('delete_pages')) {
+                    $actions .= '<button class="btn btn-sm btn-danger deletePages" data-id="' . $row->id . '"><i class="la la-trash"></i></button>';
+                }
+                return $actions ?: '<span class="text-muted">No actions</span>';
             })
             ->rawColumns(['action'])
             ->make(true);

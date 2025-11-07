@@ -22,7 +22,9 @@
     </div>
     <div class="content-header-right col-md-6 col-12">
         <div class="btn-group float-md-right">
-            <a class="btn btn-info mb-1" href="{{ route('admin.pages.create') }}">Add Page</a>
+            @canAccess('create_pages')
+                <a class="btn btn-info mb-1" href="{{ route('admin.pages.create') }}">Add Page</a>
+            @endcanAccess
         </div>
     </div>
 </div>

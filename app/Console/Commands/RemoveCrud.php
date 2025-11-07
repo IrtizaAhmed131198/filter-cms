@@ -1,5 +1,5 @@
 <?php
-// php artisan make:remove Banner
+// php artisan remove:crud Banner
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
@@ -32,13 +32,13 @@ class RemoveCrud extends Command
         /* ---------------------------------------------------
          | 1️⃣ Rollback Migration Before Deletion
          --------------------------------------------------- */
-        $this->info("⏪ Rolling back migrations before deletion...");
-        try {
-            Artisan::call('migrate:rollback', ['--step' => 1]);
-            $this->info(Artisan::output());
-        } catch (\Exception $e) {
-            $this->warn("⚠️ Migration rollback failed or nothing to rollback.");
-        }
+        // $this->info("⏪ Rolling back migrations before deletion...");
+        // try {
+        //     Artisan::call('migrate:rollback', ['--step' => 1]);
+        //     $this->info(Artisan::output());
+        // } catch (\Exception $e) {
+        //     $this->warn("⚠️ Migration rollback failed or nothing to rollback.");
+        // }
 
         /* ---------------------------------------------------
          | 2️⃣ Delete Migration Files
@@ -127,10 +127,15 @@ class RemoveCrud extends Command
             $content = File::get($routeFile);
             if (Str::contains($content, $name)) {
                 if ($this->confirm("🗑 Remove routes related to '{$name}' from web.php?")) {
-                    $pattern = "/Route::.*{$name}.*;\n?/i";
-                    $updated = preg_replace($pattern, '', $content);
+                    $lower = strtolower($name);
+                    $pattern = "/(\/\/[^\n]*{$lower}[^\n]*\n\s*)?Route::middleware\([^)]*permission:[^)]+{$lower}[^)]*\)\s*->group\(function\s*\(\)\s*\{.*?\}\);\s*/is";
+                    $patternSingle = "/Route::.*{$lower}.*;\n?/i";
+
+                    $updated = preg_replace([$pattern, $patternSingle], '', $content);
+
                     File::put($routeFile, $updated);
-                    $this->info("✅ Cleaned up routes for {$name}");
+
+                    $this->info("✅ Cleaned up all routes for {$name}");
                 }
             } else {
                 $this->warn("⚠️ No routes found for {$name}.");
@@ -154,7 +159,67 @@ class RemoveCrud extends Command
             }
         }
 
-        $this->info("🎉 CRUD removal completed successfully for {$studly}!");
+        /* ---------------------------------------------------
+        | 🔟 Remove Permissions from Database
+        --------------------------------------------------- */
+        try {
+            $permissionPatterns = [
+                "view_{$name}",
+                "create_{$name}",
+                "edit_{$name}",
+                "delete_{$name}",
+                "view_trash_{$name}",
+                "manage_{$name}",
+            ];
+
+            $this->info("🧹 Cleaning up permissions for '{$name}'...");
+
+            $deleted = \DB::table('permissions')
+                ->whereIn('name', $permissionPatterns)
+                ->delete();
+
+            if ($deleted > 0) {
+                $this->info("✅ Deleted {$deleted} permission(s) for {$name}");
+            } else {
+                $this->warn("⚠️ No matching permissions found for {$name}.");
+            }
+        } catch (\Exception $e) {
+            $this->error("❌ Failed to delete permissions: " . $e->getMessage());
+        }
+
+        /* ---------------------------------------------------
+        | 1️⃣1️⃣ Remove Sidebar Menu Entry
+        --------------------------------------------------- */
+        $sidebarFile = resource_path('views/layouts/admin/sidebar.blade.php');
+
+        if (File::exists($sidebarFile)) {
+            $content = File::get($sidebarFile);
+
+            // Match the block that starts with {{-- News --}} and ends after @endcanAccess (multiline-safe)
+            $pattern = '/{{--\s*' . preg_quote($studly, '/') . '\s*--}}\s*@canAccess[\s\S]*?@endcanAccess\s*/i';
+
+            if (preg_match($pattern, $content)) {
+                if ($this->confirm("🗑 Remove sidebar menu entry for {$studly}?")) {
+                    $updated = preg_replace($pattern, '', $content);
+                    File::put($sidebarFile, $updated);
+                    $this->info("✅ Removed sidebar menu item for {$studly}");
+                }
+            } else {
+                // fallback: try matching without @canAccess wrapper
+                $pattern2 = '/{{--\s*' . preg_quote($studly, '/') . '\s*--}}\s*<li[\s\S]*?<\/li>\s*/i';
+                if (preg_match($pattern2, $content)) {
+                    if ($this->confirm("🗑 Remove sidebar menu entry for {$studly}?")) {
+                        $updated = preg_replace($pattern2, '', $content);
+                        File::put($sidebarFile, $updated);
+                        $this->info("✅ Removed sidebar menu item for {$studly}");
+                    }
+                } else {
+                    $this->warn("⚠️ No sidebar menu item found for {$studly}.");
+                    $this->line("🔍 Tried pattern:\n{$pattern}\n{$pattern2}");
+                }
+            }
+        }
+
         return 0;
     }
 }

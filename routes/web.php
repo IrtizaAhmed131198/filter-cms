@@ -1,18 +1,20 @@
 <?php
 
 
-
-
+use App\Http\Controllers\Admin\NewsController;
 use App\Http\Controllers\Admin\TrainingController;
 use App\Http\Controllers\Admin\BookController;
 use App\Http\Controllers\Admin\BooksController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Admin\BannerController;
-use App\Http\Controllers\Admin\NewsController;
 use App\Http\Controllers\Admin\PageController;
 use App\Http\Controllers\Admin\SectionController;
 use App\Http\Controllers\Admin\UsersController;
+use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\PermissionController;
+use App\Http\Controllers\Admin\ProductController;
 
 /*
 |--------------------------------------------------------------------------
@@ -101,7 +103,6 @@ Route::get('contact','HomeController@contact')->name('contact');
 
 
 Route::post('careerSubmit','HomeController@careerSubmit')->name('contactUsSubmit');
-Route::post('newsletter-submit','HomeController@newsletterSubmit')->name('newsletterSubmit');
 Route::post('update-content','HomeController@updateContent')->name('update-content');
 
 //=================================================================//
@@ -170,142 +171,101 @@ Route::resource('upcomingclasses', 'UpcomingclassesController');
 
 //===================== Admin Routes =====================//
 
-Route::middleware(['auth', 'role:1'])->prefix('admin')->group(function () {
+Route::middleware(['auth', 'role:1,2']) // Only super_admin & admin can access /admin
+    ->prefix('admin')
+    ->group(function () {
 
-    Route::get('/','Admin\AdminController@dashboard');
+    // 🧭 Dashboard (Both super admin + admin can see)
+    Route::get('/', [AdminController::class, 'dashboard'])->name('admin.home');
+    Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
 
-    Route::get('/dashboard','Admin\AdminController@dashboard')->name('admin.dashboard');
+    // ⚙️ Account Settings
+    Route::get('account/settings', [UsersController::class, 'getSettings']);
+    Route::post('account/settings', [UsersController::class, 'saveSettings']);
 
-    Route::get('account/settings','Admin\UsersController@getSettings');
-    Route::post('account/settings','Admin\UsersController@saveSettings');
-
-    Route::get('project', function () {
-        return view('dashboard.index-project');
+    // 🖼 Logo & Favicon (only super admin)
+    Route::middleware('permission:manage_site_config')->group(function () {
+        Route::get('logo/edit', [AdminController::class, 'logoEdit'])->name('admin.logo.edit');
+        Route::post('logo/upload', [AdminController::class, 'logoUpload'])->name('logo_upload');
+        Route::get('favicon/edit', [AdminController::class, 'faviconEdit'])->name('admin.favicon.edit');
+        Route::post('favicon/upload', [AdminController::class, 'faviconUpload'])->name('favicon_upload');
+        Route::get('config/setting', [AdminController::class, 'configSetting'])->name('admin.config.setting');
+        Route::post('config/setting', [AdminController::class, 'configSettingUpdate'])->name('config_settings_update');
     });
 
-    Route::get('analytics', function () {
-        return view('admin.dashboard.index-analytics');
+    // ✉️ Contact/Newsletter (admin or super admin)
+    Route::middleware('permission:view_inquiries')->group(function () {
+        Route::get('contact/inquiries', [AdminController::class, 'contactSubmissions'])->name('admin.contact.inquiries');
+        Route::get('newsletter/inquiries', [AdminController::class, 'newsletterInquiries'])->name('admin.newsletter.inquiries');
+        Route::get('contact/inquiries/{id}', [AdminController::class, 'inquiryshow']);
+        Route::any('contact/submissions/delete/{id}', [AdminController::class, 'contactSubmissionsDelete']);
+    });
+
+    // 🔐 Role & Permission Management — only super admin
+    Route::middleware('role:1')->group(function () {
+        # Permission management
+        Route::get('permission-management', [PermissionController::class, 'index'])->name('admin.permissions.index');
+        Route::post('permission-management', [PermissionController::class, 'store'])->name('admin.permissions.store');
+        Route::post('permission/assign', [PermissionController::class, 'assignToRole'])->name('admin.permissions.assign');
+        Route::delete('permission/{id}', [PermissionController::class, 'destroy'])->name('admin.permissions.delete');
+        Route::get('permissions/role/{id}', [PermissionController::class, 'getRolePermissions'])->name('admin.permissions.role.permissions');
+
+        # Role management
+        Route::get('role-management', [RoleController::class, 'getIndex']);
+        Route::get('role/create', [RoleController::class, 'create']);
+        Route::post('role/create', [RoleController::class, 'save']);
+        Route::get('role/edit/{id}', [RoleController::class, 'edit']);
+        Route::post('role/edit/{id}', [RoleController::class, 'update']);
+        Route::get('role/delete/{id}', [RoleController::class, 'delete']);
+    });
+
+    // 👥 User Management (permission-based)
+    Route::middleware('permission:manage_users')->group(function () {
+        Route::get('users/data', [UsersController::class, 'getData'])->name('admin.users.data');
+        Route::post('users/{id}/toggle-status', [UsersController::class, 'toggleStatus'])->name('admin.users.toggleStatus');
+        Route::get('users/trash', [UsersController::class, 'trash'])->name('admin.users.trash');
+        Route::get('users/trash/data', [UsersController::class, 'getTrashedData'])->name('admin.users.trash.data');
+        Route::post('users/{id}/restore', [UsersController::class, 'restore'])->name('admin.users.restore');
+        Route::delete('users/{id}/force-delete', [UsersController::class, 'forceDelete'])->name('admin.users.forceDelete');
+        Route::delete('users/bulk-delete', [UsersController::class, 'bulkDelete'])->name('admin.users.bulkDelete');
+        Route::post('users/bulk-restore', [UsersController::class, 'bulkRestore'])->name('admin.users.bulkRestore');
+        Route::delete('users/bulk-force-delete', [UsersController::class, 'bulkForceDelete'])->name('admin.users.bulkForceDelete');
+        Route::resource('users', UsersController::class)->names('admin.users');
+    });
+
+    // 🛍 Product Management
+    Route::middleware('permission:manage_products')->group(function () {
+        Route::resource('product', ProductController::class);
+        Route::get('product/{id}/delete', [ProductController::class, 'destroy'])->name('product.delete');
+        Route::get('order/list', [ProductController::class, 'orderList'])->name('order.list');
+        Route::get('order/detail/{id}', [ProductController::class, 'orderListDetail'])->name('order.list.detail');
+        Route::get('status/completed/{id}', [ProductController::class, 'updatestatuscompleted'])->name('status.completed');
+        Route::get('status/pending/{id}', [ProductController::class, 'updatestatusPending'])->name('status.pending');
+    });
+
+    // 📄 Pages & Sections
+    Route::middleware('permission:manage_pages')->group(function () {
+        Route::get('pages/data', [PageController::class, 'getData'])->name('admin.pages.data');
+        Route::resource('pages', PageController::class)->names('admin.pages');
+        Route::post('pages/{page}/sections', [SectionController::class, 'store'])->name('admin.sections.store');
+        Route::delete('sections/{section}', [SectionController::class, 'destroy'])->name('admin.sections.destroy');
+    });
+
+    // 🖼 Banner Management
+    Route::middleware('permission:manage_banners')->group(function () {
+        Route::get('banner/data', [BannerController::class, 'getData'])->name('admin.banner.data');
+        Route::post('banner/{banner}/toggle-status', [BannerController::class, 'toggleStatus'])->name('admin.banner.toggleStatus');
+        Route::get('banner/trash', [BannerController::class, 'trash'])->name('admin.banner.trash');
+        Route::get('banner/trash/data', [BannerController::class, 'getTrashedData'])->name('admin.banner.trash.data');
+        Route::post('banner/{id}/restore', [BannerController::class, 'restore'])->name('admin.banner.restore');
+        Route::delete('banner/{id}/force-delete', [BannerController::class, 'forceDelete'])->name('admin.banner.forceDelete');
+        Route::delete('banner/bulk-delete', [BannerController::class, 'bulkDelete'])->name('admin.banner.bulkDelete');
+        Route::post('banner/bulk-restore', [BannerController::class, 'bulkRestore'])->name('admin.banner.bulkRestore');
+        Route::delete('banner/bulk-force-delete', [BannerController::class, 'bulkForceDelete'])->name('admin.banner.bulkForceDelete');
+        Route::post('admin/banner/sort', [BannerController::class, 'sort'])->name('admin.banner.sort');
+        Route::resource('banner', BannerController::class)->names('admin.banner');
     });
 
 
-    Route::get('logo/edit','Admin\AdminController@logoEdit')->name('admin.logo.edit');
-    Route::post('logo/upload','Admin\AdminController@logoUpload')->name('logo_upload');
-
-    Route::get('favicon/edit','Admin\AdminController@faviconEdit')->name('admin.favicon.edit');
-
-    Route::post('favicon/upload','Admin\AdminController@faviconUpload')->name('favicon_upload');
-
-    Route::get('config/setting', 'Admin\AdminController@configSetting')->name('admin.config.setting');
-
-    Route::get('contact/inquiries','Admin\AdminController@contactSubmissions');
-    Route::get('contact/inquiries/{id}','Admin\AdminController@inquiryshow');
-    Route::get('newsletter/inquiries','Admin\AdminController@newsletterInquiries');
-
-    Route::any('contact/submissions/delete/{id}','Admin\AdminController@contactSubmissionsDelete');
-    Route::any('newsletter/inquiries/delete/{id}','Admin\AdminController@newsletterInquiriesDelete');
-
-    /* Config Setting Form Submit Route */
-    Route::post('config/setting','Admin\AdminController@configSettingUpdate')->name('config_settings_update');
-
-    //==================== Error pages Routes ====================//
-    Route::get('403',function (){
-        return view('pages.403');
     });
-
-    Route::get('404',function (){
-        return view('pages.404');
-    });
-
-    Route::get('405',function (){
-        return view('pages.405');
-    });
-
-    Route::get('500',function (){
-        return view('pages.500');
-    });
-    //============================================================//
-
-    #Permission management
-    Route::get('permission-management','PermissionController@getIndex');
-    Route::get('permission/create','PermissionController@create');
-    Route::post('permission/create','PermissionController@save');
-    Route::get('permission/delete/{id}','PermissionController@delete');
-    Route::get('permission/edit/{id}','PermissionController@edit');
-    Route::post('permission/edit/{id}','PermissionController@update');
-
-    #Role management
-    Route::get('role-management','RoleController@getIndex');
-    Route::get('role/create','RoleController@create');
-    Route::post('role/create','RoleController@save');
-    Route::get('role/delete/{id}','RoleController@delete');
-    Route::get('role/edit/{id}','RoleController@edit');
-    Route::post('role/edit/{id}','RoleController@update');
-
-    #CRUD Generator
-    Route::get('/crud-generator', ['uses' => 'ProcessController@getGenerator']);
-    Route::post('/crud-generator', ['uses' => 'ProcessController@postGenerator']);
-
-    #User Management routes
-    // Route::get('users','Admin\\UsersController@Index');
-    // Route::get('user/create','Admin\\UsersController@create');
-    // Route::post('user/create','Admin\\UsersController@save');
-    // Route::get('user/edit/{id}','Admin\\UsersController@edit');
-    // Route::post('user/edit/{id}','Admin\\UsersController@update');
-    // Route::get('user/delete/{id}','Admin\\UsersController@destroy');
-    Route::get('users/data', [UsersController::class, 'getData'])->name('admin.users.data');
-    Route::post('users/{id}/toggle-status', [UsersController::class, 'toggleStatus'])->name('admin.users.toggleStatus');
-    Route::get('users/trash', [UsersController::class, 'trash'])->name('admin.users.trash');
-    Route::get('users/trash/data', [UsersController::class, 'getTrashedData'])->name('admin.users.trash.data');
-    Route::post('users/{id}/restore', [UsersController::class, 'restore'])->name('admin.users.restore');
-    Route::delete('users/{id}/force-delete', [UsersController::class, 'forceDelete'])->name('admin.users.forceDelete');
-    Route::delete('users/bulk-delete', [UsersController::class, 'bulkDelete'])->name('admin.users.bulkDelete');
-    Route::post('users/bulk-restore', [UsersController::class, 'bulkRestore'])->name('admin.users.bulkRestore');
-    Route::delete('users/bulk-force-delete', [UsersController::class, 'bulkForceDelete'])->name('admin.users.bulkForceDelete');
-    Route::resource('users', UsersController::class)->names('admin.users');
-
-
-    Route::resource('product', 'Admin\\ProductController');
-    Route::get('product/{id}/delete', ['as' => 'product.delete', 'uses' => 'Admin\\ProductController@destroy']);
-    Route::get('order/list', ['as' => 'order.list', 'uses' => 'Admin\\ProductController@orderList']);
-    Route::get('order/detail/{id}', ['as' => 'order.list.detail', 'uses' => 'Admin\\ProductController@orderListDetail']);
-
-     //Order Status Change Routes//
-    Route::get('status/completed/{id}','Admin\\ProductController@updatestatuscompleted')->name('status.completed');
-    Route::get('status/pending/{id}','Admin\\ProductController@updatestatusPending')->name('status.pending');
-
-    // Pages (resource)
-    Route::get('pages/data', [PageController::class, 'getData'])->name('admin.pages.data');
-    // Route::post('page/{page}/toggle-status', [PageController::class, 'toggleStatus'])->name('admin.page.toggleStatus');
-    // Route::get('page/trash', [PageController::class, 'trash'])->name('admin.page.trash');
-    // Route::get('page/trash/data', [PageController::class, 'getTrashedData'])->name('admin.page.trash.data');
-    // Route::post('page/{id}/restore', [PageController::class, 'restore'])->name('admin.page.restore');
-    // Route::delete('page/{id}/force-delete', [PageController::class, 'forceDelete'])->name('admin.page.forceDelete');
-    Route::resource('pages', PageController::class)->names('admin.pages');
-
-    //sections within pages
-    Route::post('pages/{page}/sections', [SectionController::class, 'store'])->name('admin.sections.store');
-    Route::delete('sections/{section}', [SectionController::class, 'destroy'])->name('admin.sections.destroy');
-
-    // Banners (resource)
-    Route::get('banner/data', [BannerController::class, 'getData'])->name('admin.banner.data');
-    Route::post('banner/{banner}/toggle-status', [BannerController::class, 'toggleStatus'])->name('admin.banner.toggleStatus');
-    Route::get('banner/trash', [BannerController::class, 'trash'])->name('admin.banner.trash');
-    Route::get('banner/trash/data', [BannerController::class, 'getTrashedData'])->name('admin.banner.trash.data');
-    Route::post('banner/{id}/restore', [BannerController::class, 'restore'])->name('admin.banner.restore');
-    Route::delete('banner/{id}/force-delete', [BannerController::class, 'forceDelete'])->name('admin.banner.forceDelete');
-    Route::delete('banner/bulk-delete', [BannerController::class, 'bulkDelete'])->name('admin.banner.bulkDelete');
-    Route::post('banner/bulk-restore', [BannerController::class, 'bulkRestore'])->name('admin.banner.bulkRestore');
-    Route::delete('banner/bulk-force-delete', [BannerController::class, 'bulkForceDelete'])->name('admin.banner.bulkForceDelete');
-    Route::post('admin/banner/sort', [BannerController::class, 'sort'])->name('admin.banner.sort');
-    Route::resource('banner', BannerController::class)->names('admin.banner');
-
-    // News (resource)
-    Route::get('news/data', [NewsController::class, 'getData'])->name('admin.news.data');
-    Route::post('news/{news}/toggle-status', [NewsController::class, 'toggleStatus'])->name('admin.news.toggleStatus');
-    Route::get('news/trash', [NewsController::class, 'trash'])->name('admin.news.trash');
-    Route::get('news/trash/data', [NewsController::class, 'getTrashedData'])->name('admin.news.trash.data');
-    Route::post('news/{id}/restore', [NewsController::class, 'restore'])->name('admin.news.restore');
-    Route::delete('news/{id}/force-delete', [NewsController::class, 'forceDelete'])->name('admin.news.forceDelete');
-    Route::resource('news', NewsController::class)->names('admin.news');
-});
 require __DIR__.'/auth.php';

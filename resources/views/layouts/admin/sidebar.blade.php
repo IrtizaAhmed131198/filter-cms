@@ -1,130 +1,148 @@
 <div class="main-menu menu-fixed menu-dark menu-accordion menu-shadow" data-scroll-to-active="true">
     <div class="main-menu-content">
         <ul class="navigation navigation-main" id="main-menu-navigation" data-menu="menu-navigation">
+
+            {{-- Dashboard / Home --}}
             <li class="nav-item">
-                <a href="javascript:;"><i class="la la-home"></i><span class="menu-title" data-i18n="Dashboard">Home</span></a>
+                <a href="javascript:;"><i class="la la-home"></i><span class="menu-title">Home</span></a>
                 <ul class="menu-content">
-                    <li class="{{ (request()->routeIs('admin.dashboard'))? 'active' : '' }}">
-                        <a class="menu-item" href="{{url('admin/dashboard')}}"><i></i>
-                            <span data-i18n="eCommerce">Dashboard</span>
-                    </a>
-                    </li>
-                    <li class="{{ (request()->routeIs('home'))? 'active' : '' }}">
-                        <a class="menu-item" href="{{ URL('') }}"><i></i>
-                            <span data-i18n="Crypto">Visit Website</span>
+                    <li class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+                        <a class="menu-item" href="{{ route('admin.dashboard') }}">
+                            <i></i> <span>Dashboard</span>
                         </a>
                     </li>
-                    <li class="{{ (request()->routeIs('admin.favicon.edit'))? 'active' : '' }}">
-                        <a class="menu-item" href="{{url('admin/favicon/edit')}}"><i></i>
-                            <span data-i18n="Crypto">Favicon Management</span>
+                    <li>
+                        <a class="menu-item" href="{{ url('') }}">
+                            <i></i><span>Visit Website</span>
                         </a>
                     </li>
-                    <li class="{{ (request()->routeIs('admin.logo.edit'))? 'active' : '' }}">
-                        <a class="menu-item" href="{{url('admin/logo/edit')}}"><i></i>
-                            <span data-i18n="Sales">Logo Management</span>
+
+                    {{-- Permission Management --}}
+                    @canAccess('manage_permissions')
+                        <li class="{{ request()->routeIs('admin.permissions.*') ? 'active' : '' }}">
+                            <a class="menu-item" href="{{ route('admin.permissions.index') }}">
+                                <i></i><span>Permission Management</span>
+                            </a>
+                        </li>
+                    @endcanAccess
+
+                    {{-- Favicon Management --}}
+                    @canAccess('view_favicon')
+                        <li class="{{ request()->routeIs('admin.favicon.edit') ? 'active' : '' }}">
+                            <a class="menu-item" href="{{ route('admin.favicon.edit') }}">
+                                <i></i><span>Favicon Management</span>
+                            </a>
+                        </li>
+                    @endcanAccess
+
+                    {{-- Logo Management --}}
+                    @canAccess('view_logo')
+                        <li class="{{ request()->routeIs('admin.logo.edit') ? 'active' : '' }}">
+                            <a class="menu-item" href="{{ url('admin.logo.edit') }}">
+                                <i></i><span>Logo Management</span>
+                            </a>
+                        </li>
+                    @endcanAccess
+
+                    {{-- User Management --}}
+                    @canAccess('view_users')
+                        <li class="{{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+                            <a class="menu-item" href="{{ route('admin.users.index') }}">
+                                <i></i><span>User Management</span>
+                            </a>
+                        </li>
+                    @endcanAccess
+
+                    {{-- Role Management --}}
+                    {{-- @canAccess('manage_roles')
+                        <li class="{{ request()->routeIs('admin.roles.*') ? 'active' : '' }}">
+                            <a class="menu-item" href="{{ route('admin.roles.index') }}">
+                                <i></i><span>Role Management</span>
+                            </a>
+                        </li>
+                    @endcanAccess --}}
+
+                    {{-- Banner Management --}}
+                    <li class="{{ request()->routeIs('admin.banner.*') ? 'active' : '' }}">
+                        <a class="menu-item" href="{{ route('admin.banner.index') }}">
+                            <i></i><span>Banner Management</span>
                         </a>
                     </li>
-                    <li class="{{ (request()->routeIs('admin.users.index') || request()->routeIs('admin.users.create') || request()->routeIs('admin.users.edit')) ? 'active' : '' }}">
-                        <a class="menu-item" href="{{url('admin/users')}}"><i></i>
-                            <span data-i18n="Sales">User Management</span>
-                        </a>
-                    </li>
-                    <li class="{{ (request()->routeIs('admin.banner.index') || request()->routeIs('admin.banner.create') || request()->routeIs('admin.banner.edit')) ? 'active' : '' }}">
-                        <a class="menu-item" href="{{url('admin/banner')}}"><i></i>
-                            <span data-i18n="Sales">Banner Management</span>
-                        </a>
-                    </li>
-                    <li class="{{ (request()->routeIs('admin.config.setting'))? 'active' : '' }}">
-                        <a class="menu-item" href="{{url('admin/config/setting')}}"><i></i>
-                            <span data-i18n="Sales">Config</span>
+
+                    {{-- Config --}}
+                    <li class="{{ request()->routeIs('admin.config.setting') ? 'active' : '' }}">
+                        <a class="menu-item" href="{{ route('admin.config.setting') }}">
+                            <i></i><span>Config</span>
                         </a>
                     </li>
                 </ul>
             </li>
+
+            {{-- Inquiries --}}
             <li class="nav-item">
-                <a href="javascript:;"><i class="la la-share-alt"></i><span class="menu-title" data-i18n="Dashboard">Inquires</span></a>
+                <a href="javascript:;"><i class="la la-share-alt"></i><span class="menu-title">Inquiries</span></a>
                 <ul class="menu-content">
-                    <li class="{{ (request()->is('admin/contact/inquiries') || request()->is('admin/contact/inquiries/*')) ? 'active' : '' }}">
-                        <a class="menu-item" href="{{url('admin/contact/inquiries')}}"><i></i>
-                            <span data-i18n="eCommerce">Contact Inquiries</span>
-                    </a>
+                    <li class="{{ request()->routeIs('admin.contact.inquiries*') ? 'active' : '' }}">
+                        <a class="menu-item" href="{{ route('admin.contact.inquiries') }}"><i></i>
+                            <span>Contact Inquiries</span>
+                        </a>
                     </li>
-                    <li class="{{ (request()->is('admin/newsletter/inquiries')) ? 'active' : '' }}">
-                        <a class="menu-item" href="{{url('admin/newsletter/inquiries')}}"><i></i>
-                            <span data-i18n="Crypto">Newsletter Inquiries</span>
+                    <li class="{{ request()->routeIs('admin.newsletter.inquiries*') ? 'active' : '' }}">
+                        <a class="menu-item" href="{{ route('admin.newsletter.inquiries') }}"><i></i>
+                            <span>Newsletter Inquiries</span>
                         </a>
                     </li>
                 </ul>
             </li>
+
+            {{-- CMS --}}
             <li class="nav-item">
-                <a href="javascript:;"><i class="la la-list"></i><span class="menu-title" data-i18n="Dashboard">CMS</span></a>
+                <a href="javascript:;"><i class="la la-list"></i><span class="menu-title">CMS</span></a>
                 <ul class="menu-content">
-                    <li class="{{ (request()->is('admin/pages') || request()->is('admin/pages/*')) ? 'active' : '' }}">
-                        <a class="menu-item" href="{{ url('admin/pages') }}"><i></i>
-                            <span data-i18n="eCommerce">Pages Content</span>
+                    <li class="{{ request()->routeIs('admin.pages*') ? 'active' : '' }}">
+                        <a class="menu-item" href="{{ route('admin.pages.index') }}"><i></i>
+                            <span>Pages Content</span>
                         </a>
                     </li>
                 </ul>
             </li>
+
+            {{-- Ecommerce --}}
             <li class="nav-item">
-                <a href="javascript:;"><i class="la la-shopping-cart"></i><span class="menu-title" data-i18n="Dashboard">Ecommerce</span></a>
+                <a href="javascript:;"><i class="la la-shopping-cart"></i><span class="menu-title">Ecommerce</span></a>
                 <ul class="menu-content">
-                    <li class="{{ (request()->is('admin/attributes') || request()->is('admin/attributes/*')) ? 'active' : '' }}">
-                        <a class="menu-item" href="{{url('admin/attributes')}}"><i></i>
-                            <span data-i18n="eCommerce">Attributes</span>
-                        </a>
+                    <li class="{{ request()->is('admin/attributes*') ? 'active' : '' }}">
+                        <a class="menu-item" href="{{ url('admin/attributes') }}"><i></i><span>Attributes</span></a>
                     </li>
-                    <li class="{{ (request()->is('admin/attributes-value') || request()->is('admin/attributes-value/*')) ? 'active' : '' }}">
-                        <a class="menu-item" href="{{url('admin/attributes-value')}}"><i></i>
-                            <span data-i18n="eCommerce">Attributes Values</span>
-                        </a>
+                    <li class="{{ request()->is('admin/attributes-value*') ? 'active' : '' }}">
+                        <a class="menu-item" href="{{ url('admin/attributes-value') }}"><i></i><span>Attributes Values</span></a>
                     </li>
-                    <li class="{{ (request()->is('admin/category') || request()->is('admin/category/*')) ? 'active' : '' }}">
-                        <a class="menu-item" href="{{url('admin/category')}}"><i></i>
-                            <span data-i18n="eCommerce">Categories</span>
-                        </a>
+                    <li class="{{ request()->is('admin/category*') ? 'active' : '' }}">
+                        <a class="menu-item" href="{{ url('admin/category') }}"><i></i><span>Categories</span></a>
                     </li>
-                    <li class="{{ (request()->is('admin/product') || request()->is('admin/product/*')) ? 'active' : '' }}">
-                        <a class="menu-item" href="{{url('admin/product')}}"><i></i>
-                            <span data-i18n="eCommerce">Products</span>
-                        </a>
+                    <li class="{{ request()->is('admin/product*') ? 'active' : '' }}">
+                        <a class="menu-item" href="{{ url('admin/product') }}"><i></i><span>Products</span></a>
                     </li>
-                    <li class="{{ (request()->is('admin/order/list') || request()->is('admin/order/list/*')) ? 'active' : '' }}">
-                        <a class="menu-item" href="{{url('admin/order/list')}}"><i></i>
-                            <span data-i18n="eCommerce">Orders</span>
-                        </a>
+                    <li class="{{ request()->is('admin/order/list*') ? 'active' : '' }}">
+                        <a class="menu-item" href="{{ url('admin/order/list') }}"><i></i><span>Orders</span></a>
                     </li>
                 </ul>
             </li>
-            <li class="nav-item {{ (request()->is('admin/testimonial') || request()->is('admin/testimonial/*')) ? 'active' : '' }}">
-                <a href="{{url('admin/testimonial')}}"><i class="la la-quote-left"></i>
-                    <span class="menu-title" data-i18n="eCommerce">Testimonials</span>
+
+            {{-- Testimonials --}}
+            <li class="nav-item {{ request()->is('admin/testimonial*') ? 'active' : '' }}">
+                <a href="{{ url('admin/testimonial') }}"><i class="la la-quote-left"></i>
+                    <span class="menu-title">Testimonials</span>
                 </a>
             </li>
-            <li class="nav-item {{ (request()->is('admin/news') || request()->is('admin/news/*')) ? 'active' : '' }}">
-                <a href="{{url('admin/news')}}"><i class="la la-quote-left"></i>
-                    <span class="menu-title" data-i18n="eCommerce">News</span>
-                </a>
-            </li>
-            @php
-                $url = '/'.request()->segment(1).'/'. request()->segment(2);
-            @endphp
-            {{-- @foreach($laravelAdminMenus->menus as $section)
-                @if(count(collect($section->items)) > 0)
-                    @foreach($section->items as $menu)
-                    <li class="nav-item {{ ($url == $menu->url) ? 'active' : '' }}">
-                        <a href="{{ url($menu->url) }}" target="_blank">{!! $menu->icon !!}
-                            <span class="menu-title" data-i18n="eCommerce">{{ $menu->title }}</span>
-                        </a>
-                    </li>
-                    @endforeach
-                @endif
-            @endforeach --}}
+
+            {{-- Account Settings --}}
             <li class="nav-item">
-                <a href="{{url('admin/account/settings')}}"><i class="la la-shopping-cart"></i>
-                    <span class="menu-title" data-i18n="eCommerce">Account Settings</span>
+                <a href="{{ url('admin/account/settings') }}"><i class="la la-cog"></i>
+                    <span class="menu-title">Account Settings</span>
                 </a>
             </li>
+
         </ul>
     </div>
 </div>

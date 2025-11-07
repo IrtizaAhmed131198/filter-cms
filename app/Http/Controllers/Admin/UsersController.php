@@ -15,6 +15,10 @@ use Illuminate\Support\Facades\Hash;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Traits\FileUploadTrait;
+use App\Mail\UserCreatedMail;
+use App\Mail\UserStatusChangedMail;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Gate;
 
 class UsersController extends Controller
 {
@@ -82,14 +86,22 @@ class UsersController extends Controller
                         />';
             })
             ->addColumn('action', function ($row) {
-                $edit = '<a href="' . route('admin.users.edit', $row->id) . '" class="btn btn-sm btn-info">
-                            <i class="la la-pencil"></i>
-                        </a>';
-                $delete = '<button class="btn btn-sm btn-danger deleteUsers" data-id="' . $row->id . '">
-                            <i class="la la-trash"></i>
-                        </button>';
-                return $edit . ' ' . $delete;
+                $actions = '';
+                if (auth()->user()->hasPermission('edit_users')) {
+                    $actions .= '<a href="' . route('admin.users.edit', $row->id) . '"
+                                    class="btn btn-sm btn-info" title="Edit User">
+                                    <i class="la la-pencil"></i>
+                                </a> ';
+                }
+                if (auth()->user()->hasPermission('delete_users')) {
+                    $actions .= '<button class="btn btn-sm btn-danger deleteUsers"
+                                    data-id="' . $row->id . '" title="Delete User">
+                                    <i class="la la-trash"></i>
+                                </button>';
+                }
+                return $actions ?: '<span class="text-muted">No actions</span>';
             })
+
             ->rawColumns(['status', 'action', 'image'])
             ->make(true);
     }
@@ -141,6 +153,9 @@ class UsersController extends Controller
         $user->profile()->create($profileData);
 
         log_activity('create', User::class, $user->id, 'Created a new user: ' . $user->name, ['user' => $user->only(['id', 'name', 'email', 'role'])]);
+
+        // 6️⃣ Send email notification to new user
+        Mail::to($user->email)->send(new UserCreatedMail($user));
 
         return redirect('admin/users')->with('message', 'User added successfully!');
     }
@@ -311,6 +326,8 @@ class UsersController extends Controller
                 'new_status' => $user->status
             ]
         );
+
+        // Mail::to($user->email)->send(new UserStatusChangedMail($user));
 
         return response()->json([
             'success' => true,

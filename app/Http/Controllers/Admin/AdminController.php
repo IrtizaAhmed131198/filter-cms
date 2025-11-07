@@ -69,6 +69,8 @@ class AdminController extends Controller
         $imagetable = imagetable::where('table_name', 'favicon')->first();
         $uploadFolder = 'uploads/favicon/';
 
+        $oldData = $imagetable ? $imagetable->toArray() : [];
+
         // If new file is uploaded
         if ($request->hasFile('image')) {
             // If an old favicon exists, delete it
@@ -85,8 +87,10 @@ class AdminController extends Controller
                     'table_name' => 'favicon',
                     'img_path'   => $filePath,
                 ]);
+                log_activity('create', imagetable::class, $imagetable->id, 'Uploaded new favicon', ['after' => $imagetable->toArray()]);
             } else {
                 $imagetable->update(['img_path' => $filePath]);
+                log_activity('update', imagetable::class, $imagetable->id, 'Updated favicon', ['before' => $oldData, 'after' => $imagetable->toArray()]);
             }
         }
 
@@ -113,6 +117,8 @@ class AdminController extends Controller
         $imagetable = imagetable::where('table_name', 'logo')->first();
         $uploadFolder = 'uploads/logo/';
 
+        $oldData = $imagetable ? $imagetable->toArray() : [];
+
         // ✅ If a new image file is uploaded
         if ($request->hasFile('image')) {
 
@@ -130,8 +136,10 @@ class AdminController extends Controller
                     'table_name' => 'logo',
                     'img_path'   => $filePath,
                 ]);
+                log_activity('create', imagetable::class, $imagetable->id, 'Uploaded new logo', ['after' => $imagetable->toArray()]);
             } else {
                 $imagetable->update(['img_path' => $filePath]);
+                log_activity('update', imagetable::class, $imagetable->id, 'Updated logo', ['before' => $oldData, 'after' => $imagetable->toArray()]);
             }
         }
 

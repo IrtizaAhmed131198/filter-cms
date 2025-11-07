@@ -7,9 +7,17 @@
     </div>
     <div class="content-header-right col-md-6 col-12">
         <div class="btn-group float-md-right">
-            <button id="bulkDelete" class="btn btn-danger mr-1 mb-1">Delete Selected</button>
+            @canAccess('delete_banner')
+                <button id="bulkDelete" class="btn btn-danger mr-1 mb-1">Delete Selected</button>
+            @endcanAccess
+
+            @canAccess('create_banner')
             <a class="btn btn-info mb-1" href="{{ url('admin/banner/create') }}">Add Banner</a>
-            <a class="btn btn-warning ml-1 mb-1" href="{{ route('admin.banner.trash') }}">View Trashed Banners</a>
+            @endcanAccess
+
+            @canAccess('view_trash_banner')
+                <a class="btn btn-warning ml-1 mb-1" href="{{ route('admin.banner.trash') }}">View Trashed Banners</a>
+            @endcanAccess
         </div>
     </div>
 </div>

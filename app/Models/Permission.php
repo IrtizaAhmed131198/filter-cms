@@ -20,20 +20,25 @@ class Permission extends Model
      */
     public function roles()
     {
-        return $this->belongsToMany(Role::class);
+        return $this->belongsToMany(Role::class, 'role_permission');
+    }
+
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'user_permission');
     }
 
     /**
      * A permission list that can be used for static menu.
      */
 
-    public static function permissionList($menu)
-    {
-      $permissionsList = Permission::where('name','LIKE','%'.str_slug($menu))->get();
-      $permissions['add'] = $permissionsList->where('name','=','add-'.str_slug($menu))->pluck('id')->first();
-      $permissions['edit'] = $permissionsList->where('name','=','edit-'.str_slug($menu))->pluck('id')->first();
-      $permissions['view'] = $permissionsList->where('name','=','view-'.str_slug($menu))->pluck('id')->first();
-      $permissions['delete'] = $permissionsList->where('name','=','delete-'.str_slug($menu))->pluck('id')->first();
-     return  $permissions;
-    }
+    // public static function permissionList($menu)
+    // {
+    //   $permissionsList = Permission::where('name','LIKE','%'.str_slug($menu))->get();
+    //   $permissions['add'] = $permissionsList->where('name','=','add-'.str_slug($menu))->pluck('id')->first();
+    //   $permissions['edit'] = $permissionsList->where('name','=','edit-'.str_slug($menu))->pluck('id')->first();
+    //   $permissions['view'] = $permissionsList->where('name','=','view-'.str_slug($menu))->pluck('id')->first();
+    //   $permissions['delete'] = $permissionsList->where('name','=','delete-'.str_slug($menu))->pluck('id')->first();
+    //  return  $permissions;
+    // }
 }

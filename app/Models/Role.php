@@ -21,7 +21,12 @@ class Role extends Model
      */
     public function permissions()
     {
-        return $this->belongsToMany(Permission::class);
+        return $this->belongsToMany(Permission::class, 'permission_role');
+    }
+
+    public function users()
+    {
+        return $this->hasMany(User::class, 'role', 'id');
     }
 
     /**
@@ -31,8 +36,8 @@ class Role extends Model
      *
      * @return mixed
      */
-    public function givePermissionTo(Permission $permission)
-    {
-        return $this->permissions()->save($permission);
-    }
+    // public function givePermissionTo(Permission $permission)
+    // {
+    //     return $this->permissions()->save($permission);
+    // }
 }

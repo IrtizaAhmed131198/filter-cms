@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Support\Facades\Auth;
 
 class CheckRole
 {
@@ -14,32 +15,14 @@ class CheckRole
      *
      * @return mixed
      */
-    public function handle($request, Closure $next, $c_role = [])
+    public function handle($request, Closure $next, ...$roles)
     {
-        // Get the required roles from the route
-        $roles = $this->getRequiredRoleForRoute($request->route());
-        if($roles == null){
-            $roles = $c_role;
-        }
-        // Check if a role is required for the route, and
-        // if so, ensure that the user has that role.
-        if ($request->user()->hasRole($roles) || !$roles) {
-            return $next($request);
+        $user = Auth::user();
+
+        if (!$user || !in_array($user->role, $roles)) {
+            abort(403, 'Access denied.');
         }
 
-//        return response([
-//            'error' => [
-//                'code' => 'INSUFFICIENT_ROLE',
-//                'description' => 'You are not authorized to access this resource.',
-//            ],
-//        ], 401);
-        return back();
-    }
-
-    private function getRequiredRoleForRoute($route)
-    {
-        $actions = $route->getAction();
-
-        return isset($actions['roles']) ? $actions['roles'] : null;
+        return $next($request);
     }
 }
