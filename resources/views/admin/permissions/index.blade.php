@@ -84,24 +84,34 @@
 
                                 <div class="form-group mb-3">
                                     <label>Permissions:</label>
-                                    <div class="row">
-                                        @foreach($permissions as $permission)
-                                            <div class="col-md-3">
-                                                <div class="form-check">
-                                                    <input
-                                                        class="form-check-input"
-                                                        type="checkbox"
-                                                        name="permissions[]"
-                                                        value="{{ $permission->id }}"
-                                                        id="perm{{ $permission->id }}"
-                                                    >
-                                                    <label class="form-check-label" for="perm{{ $permission->id }}">
-                                                        {{ $permission->label ?? $permission->name }}
-                                                    </label>
+
+                                    @foreach($permissions as $module => $modulePermissions)
+                                        <div class="card mt-2 shadow-sm border">
+                                            <div class="card-header bg-light py-2">
+                                                <strong>{{ $module }}</strong>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="row">
+                                                    @foreach($modulePermissions->sortBy('name') as $permission)
+                                                        <div class="col-md-3">
+                                                            <div class="form-check">
+                                                                <input
+                                                                    class="form-check-input"
+                                                                    type="checkbox"
+                                                                    name="permissions[]"
+                                                                    value="{{ $permission->id }}"
+                                                                    id="perm{{ $permission->id }}"
+                                                                >
+                                                                <label class="form-check-label" for="perm{{ $permission->id }}">
+                                                                    {{ ucfirst(str_replace('_', ' ', $permission->name)) }}
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    @endforeach
                                                 </div>
                                             </div>
-                                        @endforeach
-                                    </div>
+                                        </div>
+                                    @endforeach
                                 </div>
 
                                 <button type="submit" class="btn btn-success">Save Permissions</button>

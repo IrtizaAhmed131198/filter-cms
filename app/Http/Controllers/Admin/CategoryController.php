@@ -2,204 +2,213 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Requests;
 use App\Http\Controllers\Controller;
-
-use App\Category;
+use App\Models\Category;
 use Illuminate\Http\Request;
-use Image;
-use File;
+use Yajra\DataTables\Facades\DataTables;
+use App\Http\Requests\StoreCategoryRequest;
+use App\Http\Requests\UpdateCategoryRequest;
 
 class CategoryController extends Controller
 {
-
-    public function __construct()
+    public function index()
     {
-        $this->middleware('auth');
+        return view('admin.category.index');
     }
 
-
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\View\View
-     */
-
-    public function index(Request $request)
+    public function getData(Request $request)
     {
-        $model = str_slug('category','-');
-        if(auth()->user()->permissions()->where('name','=','view-'.$model)->first()!= null) {
-            $keyword = $request->get('search');
-            $perPage = 25;
+        $query = Category::orderBy('id', 'desc');
 
-            if (!empty($keyword)) {
-                $category = Category::where('name', 'LIKE', "%$keyword%")
-                ->paginate($perPage);
-            } else {
-                $category = Category::paginate($perPage);
-            }
-
-            return view('admin.category.index', compact('category'));
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
         }
-        return response(view('403'), 403);
 
+        if ($request->filled('from_date') && $request->filled('to_date')) {
+            $query->whereBetween('created_at', [
+                $request->from_date . ' 00:00:00',
+                $request->to_date . ' 23:59:59'
+            ]);
+        }
+
+        return DataTables::of($query)
+            ->addColumn('created_at', fn($row) => $row->created_at ? $row->created_at->format('d M, Y h:i A') : '-')
+            ->addColumn('status', function ($row) {
+                $checked = $row->status ? 'checked' : '';
+                return '
+                    <label class="switch">
+                        <input type="checkbox" class="toggleCategoryStatus" data-id="' . $row->id . '" ' . $checked . '>
+                        <span class="slider round" title="Click to toggle status"></span>
+                    </label>
+                ';
+            })
+            ->addColumn('action', function ($row) {
+                $actions = '';
+                if (auth()->user()->hasPermission('edit_category')) {
+                    $actions .= '<a href="' . route('admin.category.edit', $row->id) . '"
+                                    class="btn btn-sm btn-info" title="Edit Category">
+                                    <i class="la la-pencil"></i>
+                                </a> ';
+                }
+                if (auth()->user()->hasPermission('delete_category')) {
+                    $actions .= '<button class="btn btn-sm btn-danger deleteCategory"
+                                    data-id="' . $row->id . '" title="Delete Category">
+                                    <i class="la la-trash"></i>
+                                </button>';
+                }
+                return $actions ?: '<span class="text-muted">No actions</span>';
+            })
+            ->rawColumns(['status', 'action'])
+            ->make(true);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\View\View
-     */
     public function create()
     {
-        $model = str_slug('category','-');
-        if(auth()->user()->permissions()->where('name','=','add-'.$model)->first()!= null) {
-            return view('admin.category.create');
-        }
-        return response(view('403'), 403);
-
+        return view('admin.category.create');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param \Illuminate\Http\Request $request
-     *
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Routing\Redirector
-     */
-    public function store(Request $request)
+    public function store(StoreCategoryRequest $request)
     {
-        $model = str_slug('category','-');
-        if(auth()->user()->permissions()->where('name','=','add-'.$model)->first()!= null) {
-            $this->validate($request, [
-			'name' => 'required'
-		]);
-            $requestData = $request->all();
-            
-            //
-            //Category::create($requestData);
+        $category = Category::create($request->only('name', 'description'));
 
-            if ($request->hasFile('image')) {
-                $category = new category;
+        log_activity('create', Category::class, $category->id, 'Created a new category: ' . $category->name);
 
-                $file = $request->file('image');
-                
-                //make sure yo have image folder inside your public
-                $destination_path = 'uploads/categorys/';
-                $fileName = $file->getClientOriginalName();
-                $profileImage = date("Ymd").$fileName.".".$file->getClientOriginalExtension();
-
-                Image::make($file)->save(public_path($destination_path) . DIRECTORY_SEPARATOR. $profileImage);
-
-                $category->image = $destination_path.$profileImage;
-                $category->save();
-            }
-
-            Category::create($requestData);
-            return redirect('admin/category')->with('flash_message', 'Category added!');
-        }
-        return response(view('403'), 403);
+        return redirect()->route('admin.category.index')->with('message', 'Category added successfully!');
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     *
-     * @return \Illuminate\View\View
-     */
-    public function show($id)
+    public function edit(Category $category)
     {
-        $model = str_slug('category','-');
-        if(auth()->user()->permissions()->where('name','=','view-'.$model)->first()!= null) {
-            $category = Category::findOrFail($id);
-            return view('admin.category.show', compact('category'));
-        }
-        return response(view('403'), 403);
+        return view('admin.category.edit', compact('category'));
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     *
-     * @return \Illuminate\View\View
-     */
-    public function edit($id)
+    public function update(UpdateCategoryRequest $request, Category $category)
     {
-        $model = str_slug('category','-');
-        if(auth()->user()->permissions()->where('name','=','edit-'.$model)->first()!= null) {
-            $category = Category::findOrFail($id);
-            return view('admin.category.edit', compact('category'));
-        }
-        return response(view('403'), 403);
+        $oldData = $category->toArray();
+
+        $category->update($request->only('name', 'description'));
+
+        log_activity('update', Category::class, $category->id, 'Updated category: ' . $category->name, [
+            'before' => $oldData,
+            'after'  => $category->toArray()
+        ]);
+
+        return redirect()->route('admin.category.index')->with('message', 'Category updated successfully!');
     }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @param  int  $id
-     *
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Routing\Redirector
-     */
-    public function update(Request $request, $id)
+    public function destroy(Category $category)
     {
-        $model = str_slug('category','-');
-        if(auth()->user()->permissions()->where('name','=','edit-'.$model)->first()!= null) {
-            $this->validate($request, [
-			'name' => 'required'
-		]);
-            $requestData = $request->all();
-            
+        $category->delete();
 
-        if ($request->hasFile('image')) {
-            
-            $category = category::where('id', $id)->first();
-            $image_path = public_path($category->image); 
-            
-            if(File::exists($image_path)) {
-                File::delete($image_path);
-            }
+        log_activity('delete', Category::class, $category->id, "Deleted category {$category->name}");
 
-            $file = $request->file('image');
-            $fileNameExt = $request->file('image')->getClientOriginalName();
-            $fileNameForm = str_replace(' ', '_', $fileNameExt);
-            $fileName = pathinfo($fileNameForm, PATHINFO_FILENAME);
-            $fileExt = $request->file('image')->getClientOriginalExtension();
-            $fileNameToStore = $fileName.'_'.time().'.'.$fileExt;
-            $pathToStore = public_path('uploads/categorys/');
-            Image::make($file)->save($pathToStore . DIRECTORY_SEPARATOR. $fileNameToStore);
-
-             $requestData['image'] = 'uploads/categorys/'.$fileNameToStore;               
-        }
-
-
-            $category = Category::findOrFail($id);
-             $category->update($requestData);
-
-             return redirect('admin/category')->with('flash_message', 'Category updated!');
-        }
-        return response(view('403'), 403);
-
+        return response()->json(['success' => 'Category deleted successfully.']);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     *
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Routing\Redirector
-     */
-    public function destroy($id)
+    public function toggleStatus(Category $category)
     {
-        $model = str_slug('category','-');
-        if(auth()->user()->permissions()->where('name','=','delete-'.$model)->first()!= null) {
-            Category::destroy($id);
+        $oldStatus = $category->status;
+        $category->status = !$category->status;
+        $category->save();
 
-            return redirect('admin/category')->with('flash_message', 'Category deleted!');
+        log_activity(
+            'status_toggle',
+            Category::class,
+            $category->id,
+            'Toggled category status for ' . $category->name . ' from ' . ($oldStatus ? 'Active' : 'Inactive') . ' to ' . ($category->status ? 'Active' : 'Inactive'),
+            [
+                'old_status' => $oldStatus,
+                'new_status' => $category->status
+            ]
+        );
+
+        return response()->json([
+            'success' => true,
+            'status' => $category->status ? 'Active' : 'Inactive',
+        ]);
+    }
+
+    public function trash()
+    {
+        return view('admin.category.trash');
+    }
+
+    public function getTrashedData(Request $request)
+    {
+        $categories = Category::onlyTrashed()->orderByDesc('id')->get();
+
+        return DataTables::of($categories)
+            ->addColumn('action', function ($row) {
+                $restore = '<button class="btn btn-sm btn-success restoreCategory" data-id="'.$row->id.'">
+                                <i class="la la-refresh"></i> Restore
+                            </button>';
+                $delete = '<button class="btn btn-sm btn-danger forceDeleteCategory" data-id="'.$row->id.'">
+                                <i class="la la-trash"></i> Delete Permanently
+                            </button>';
+                return $restore . ' ' . $delete;
+            })
+            ->rawColumns(['action'])
+            ->make(true);
+    }
+
+    public function restore($id)
+    {
+        $category = Category::withTrashed()->findOrFail($id);
+        $category->restore();
+
+        log_activity('restore', Category::class, $id, "Restored category {$category->name}");
+
+        return response()->json(['success' => 'Category restored successfully!']);
+    }
+
+    public function forceDelete($id)
+    {
+        $category = Category::withTrashed()->findOrFail($id);
+        $category->forceDelete();
+
+        log_activity('force_delete', Category::class, $id, "Permanently deleted category {$category->name}");
+
+        return response()->json(['success' => 'Category permanently deleted.']);
+    }
+
+    public function bulkDelete(Request $request)
+    {
+        $ids = $request->ids;
+        if (!$ids || !is_array($ids)) {
+            return response()->json(['error' => 'No items selected.'], 400);
         }
-        return response(view('403'), 403);
 
+        Category::whereIn('id', $ids)->delete();
+
+        log_activity('bulk_delete', Category::class, null, 'Bulk deleted categories: ' . implode(',', $ids), ['ids' => $ids]);
+
+        return response()->json(['success' => 'Selected categories deleted successfully.']);
+    }
+
+    public function bulkRestore(Request $request)
+    {
+        $ids = $request->ids;
+        if (!$ids || !is_array($ids)) {
+            return response()->json(['error' => 'No items selected.'], 400);
+        }
+
+        Category::withTrashed()->whereIn('id', $ids)->restore();
+
+        log_activity('bulk_restore', Category::class, null, 'Bulk restored categories: ' . implode(',', $ids), ['ids' => $ids]);
+
+        return response()->json(['success' => 'Selected categories restored successfully.']);
+    }
+
+    public function bulkForceDelete(Request $request)
+    {
+        $ids = $request->ids;
+        if (!$ids || !is_array($ids)) {
+            return response()->json(['error' => 'No items selected.'], 400);
+        }
+
+        Category::withTrashed()->whereIn('id', $ids)->forceDelete();
+
+        log_activity('bulk_force_delete', Category::class, null, 'Bulk permanently deleted categories: ' . implode(',', $ids), ['ids' => $ids]);
+
+        return response()->json(['success' => 'Selected categories permanently deleted.']);
     }
 }

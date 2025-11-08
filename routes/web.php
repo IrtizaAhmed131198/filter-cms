@@ -15,6 +15,9 @@ use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\InquiriesController;
+use App\Http\Controllers\Admin\AttributeController;
+use App\Http\Controllers\Admin\CategoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -155,10 +158,6 @@ Route::get('user-ip', 'HomeController@getusersysteminfo');
 route::get('status/delivered/{id}','admin\\productcontroller@updatestatusdelivered')->name('status.delivered');
 route::get('status/cancelled/{id}','admin\\productcontroller@updatestatuscancelled')->name('status.cancelled');
 
-Route::resource('admin/category', 'Admin\\CategoryController');
-
-Route::resource('admin/category', 'Admin\\CategoryController');
-Route::resource('admin/attributes', 'Admin\\AttributesController');
 Route::resource('admin/attributes-value', 'Admin\\AttributesValueController');
 Route::post('admin/get-attributes', 'Admin\\AttributesValueController@getdata')->name('get-attributes');
 Route::post('admin/pro-img-id-delet', 'Admin\\AttributesValueController@img_delete')->name('pro-img-id-delet');
@@ -183,22 +182,36 @@ Route::middleware(['auth', 'role:1,2']) // Only super_admin & admin can access /
     Route::get('account/settings', [UsersController::class, 'getSettings']);
     Route::post('account/settings', [UsersController::class, 'saveSettings']);
 
-    // 🖼 Logo & Favicon (only super admin)
+    // 🖼 Site Config (only super admin)
     Route::middleware('permission:manage_site_config')->group(function () {
-        Route::get('logo/edit', [AdminController::class, 'logoEdit'])->name('admin.logo.edit');
-        Route::post('logo/upload', [AdminController::class, 'logoUpload'])->name('logo_upload');
-        Route::get('favicon/edit', [AdminController::class, 'faviconEdit'])->name('admin.favicon.edit');
-        Route::post('favicon/upload', [AdminController::class, 'faviconUpload'])->name('favicon_upload');
         Route::get('config/setting', [AdminController::class, 'configSetting'])->name('admin.config.setting');
         Route::post('config/setting', [AdminController::class, 'configSettingUpdate'])->name('config_settings_update');
     });
 
+    // 🖼 Logo (only super admin)
+    Route::middleware('permission:manage_logo')->group(function () {
+        Route::get('logo/edit', [AdminController::class, 'logoEdit'])->name('admin.logo.edit');
+        Route::post('logo/upload', [AdminController::class, 'logoUpload'])->name('logo_upload');
+    });
+
+    // 🖼 Favicon (only super admin)
+    Route::middleware('permission:manage_favicon')->group(function () {
+        Route::get('favicon/edit', [AdminController::class, 'faviconEdit'])->name('admin.favicon.edit');
+        Route::post('favicon/upload', [AdminController::class, 'faviconUpload'])->name('favicon_upload');
+    });
+
     // ✉️ Contact/Newsletter (admin or super admin)
     Route::middleware('permission:view_inquiries')->group(function () {
-        Route::get('contact/inquiries', [AdminController::class, 'contactSubmissions'])->name('admin.contact.inquiries');
-        Route::get('newsletter/inquiries', [AdminController::class, 'newsletterInquiries'])->name('admin.newsletter.inquiries');
-        Route::get('contact/inquiries/{id}', [AdminController::class, 'inquiryshow']);
-        Route::any('contact/submissions/delete/{id}', [AdminController::class, 'contactSubmissionsDelete']);
+        Route::get('contact/inquiries', [InquiriesController::class, 'contactSubmissions'])->name('admin.contact.inquiries');
+        Route::get('contact/inquiries/data', [InquiriesController::class, 'getContactData'])->name('admin.contact.data');
+        Route::get('contact/inquiries/{id}', [InquiriesController::class, 'inquiryshow'])->name('admin.contact.inquiry.show');
+        Route::delete('contact/submissions/delete/{id}', [InquiriesController::class, 'contactSubmissionsDelete'])->name('admin.contact.destroy');
+        Route::delete('contact/submissions/bulk-delete', [InquiriesController::class, 'contactSubmissionsBulkDelete'])->name('admin.contact.bulkDelete');
+
+        Route::get('newsletter/inquiries', [InquiriesController::class, 'newsletterInquiries'])->name('admin.newsletter.inquiries');
+        Route::get('newsletter/inquiries/data', [InquiriesController::class, 'getNewsletterData'])->name('admin.newsletter.data');
+        Route::delete('newsletter/submissions/delete/{id}', [InquiriesController::class, 'newsletterInquiriesDelete'])->name('admin.newsletter.destroy');
+        Route::delete('newsletter/submissions/bulk-delete', [InquiriesController::class, 'newsletterInquiriesBulkDelete'])->name('admin.newsletter.bulkDelete');
     });
 
     // 🔐 Role & Permission Management — only super admin
@@ -251,6 +264,20 @@ Route::middleware(['auth', 'role:1,2']) // Only super_admin & admin can access /
         Route::delete('sections/{section}', [SectionController::class, 'destroy'])->name('admin.sections.destroy');
     });
 
+    // 🖼 Attribute
+    Route::middleware('permission:manage_attribute')->group(function () {
+        Route::get('attribute/data', [AttributeController::class, 'getData'])->name('admin.attribute.data');
+        Route::post('attribute/{attribute}/toggle-status', [AttributeController::class, 'toggleStatus'])->name('admin.attribute.toggleStatus');
+        Route::get('attribute/trash', [AttributeController::class, 'trash'])->name('admin.attribute.trash');
+        Route::get('attribute/trash/data', [AttributeController::class, 'getTrashedData'])->name('admin.attribute.trash.data');
+        Route::post('attribute/{id}/restore', [AttributeController::class, 'restore'])->name('admin.attribute.restore');
+        Route::delete('attribute/{id}/force-delete', [AttributeController::class, 'forceDelete'])->name('admin.attribute.forceDelete');
+        Route::delete('attribute/bulk-delete', [AttributeController::class, 'bulkDelete'])->name('admin.attribute.bulkDelete');
+        Route::post('attribute/bulk-restore', [AttributeController::class, 'bulkRestore'])->name('admin.attribute.bulkRestore');
+        Route::delete('attribute/bulk-force-delete', [AttributeController::class, 'bulkForceDelete'])->name('admin.attribute.bulkForceDelete');
+        Route::resource('attribute', AttributeController::class)->names('admin.attribute');
+    });
+
     // 🖼 Banner Management
     Route::middleware('permission:manage_banners')->group(function () {
         Route::get('banner/data', [BannerController::class, 'getData'])->name('admin.banner.data');
@@ -266,6 +293,19 @@ Route::middleware(['auth', 'role:1,2']) // Only super_admin & admin can access /
         Route::resource('banner', BannerController::class)->names('admin.banner');
     });
 
-
+    // 🖼 Category Management
+    Route::middleware('permission:manage_category')->group(function () {
+        Route::get('category/data', [CategoryController::class, 'getData'])->name('admin.category.data');
+        Route::post('category/{category}/toggle-status', [CategoryController::class, 'toggleStatus'])->name('admin.category.toggleStatus');
+        Route::get('category/trash', [CategoryController::class, 'trash'])->name('admin.category.trash');
+        Route::get('category/trash/data', [CategoryController::class, 'getTrashedData'])->name('admin.category.trash.data');
+        Route::post('category/{id}/restore', [CategoryController::class, 'restore'])->name('admin.category.restore');
+        Route::delete('category/{id}/force-delete', [CategoryController::class, 'forceDelete'])->name('admin.category.forceDelete');
+        Route::delete('category/bulk-delete', [CategoryController::class, 'bulkDelete'])->name('admin.category.bulkDelete');
+        Route::post('category/bulk-restore', [CategoryController::class, 'bulkRestore'])->name('admin.category.bulkRestore');
+        Route::delete('category/bulk-force-delete', [CategoryController::class, 'bulkForceDelete'])->name('admin.category.bulkForceDelete');
+        Route::resource('category', CategoryController::class)->names('admin.category');
     });
+
+});
 require __DIR__.'/auth.php';

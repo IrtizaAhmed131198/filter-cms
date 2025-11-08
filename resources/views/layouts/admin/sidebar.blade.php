@@ -38,7 +38,7 @@
                     {{-- Logo Management --}}
                     @canAccess('view_logo')
                         <li class="{{ request()->routeIs('admin.logo.edit') ? 'active' : '' }}">
-                            <a class="menu-item" href="{{ url('admin.logo.edit') }}">
+                            <a class="menu-item" href="{{ route('admin.logo.edit') }}">
                                 <i></i><span>Logo Management</span>
                             </a>
                         </li>
@@ -111,14 +111,11 @@
             <li class="nav-item">
                 <a href="javascript:;"><i class="la la-shopping-cart"></i><span class="menu-title">Ecommerce</span></a>
                 <ul class="menu-content">
-                    <li class="{{ request()->is('admin/attributes*') ? 'active' : '' }}">
-                        <a class="menu-item" href="{{ url('admin/attributes') }}"><i></i><span>Attributes</span></a>
+                    <li class="{{ request()->routeIs('admin.attribute*') ? 'active' : '' }}">
+                        <a class="menu-item" href="{{ route('admin.attribute.index') }}"><i></i><span>Attributes</span></a>
                     </li>
-                    <li class="{{ request()->is('admin/attributes-value*') ? 'active' : '' }}">
-                        <a class="menu-item" href="{{ url('admin/attributes-value') }}"><i></i><span>Attributes Values</span></a>
-                    </li>
-                    <li class="{{ request()->is('admin/category*') ? 'active' : '' }}">
-                        <a class="menu-item" href="{{ url('admin/category') }}"><i></i><span>Categories</span></a>
+                    <li class="{{ request()->routeIs('admin.category*') ? 'active' : '' }}">
+                        <a class="menu-item" href="{{ route('admin.category.index') }}"><i></i><span>Categories</span></a>
                     </li>
                     <li class="{{ request()->is('admin/product*') ? 'active' : '' }}">
                         <a class="menu-item" href="{{ url('admin/product') }}"><i></i><span>Products</span></a>

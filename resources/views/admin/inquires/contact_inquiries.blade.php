@@ -1,12 +1,8 @@
 @extends('layouts.app')
 
-@push('before-css')
-    <link href="{{asset('plugins/components/datatables/jquery.dataTables.min.css')}}" rel="stylesheet" type="text/css"/>
-@endpush
-
 @section('content')
 <div class="content-header row">
-    <div class="content-header-left col-md-12 col-12 mb-2 breadcrumb-new">
+    <div class="content-header-left col-md-6 col-12 mb-2 breadcrumb-new">
         <h3 class="content-header-title mb-0 d-inline-block">Contact Inquiries</h3>
         <div class="row breadcrumbs-top d-inline-block">
             <div class="breadcrumb-wrapper col-12">
@@ -16,6 +12,11 @@
                     <li class="breadcrumb-item active">Contact Inquiries</li>
                 </ol>
             </div>
+        </div>
+    </div>
+    <div class="content-header-right col-md-6 col-12">
+        <div class="btn-group float-md-right">
+            <button id="bulkDelete" class="btn btn-danger mr-1 mb-1">Delete Selected</button>
         </div>
     </div>
 </div>
@@ -37,8 +38,8 @@
                 </div>
                 <div class="card-content collapse show">
                     <div class="card-body card-dashboard">
-                        <div class="">
-                            <table class="table table-striped table-bordered zero-configuration">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-bordered yajra-datatable">
                                 <thead>
                                     <tr>
                                         <th>#</th>
@@ -49,33 +50,6 @@
                                         <th>Action</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    @foreach($contact_inquiries as $item)   
-                                    <tr>
-                                        <td>{{ $item->id }}</td>
-                                        <td>{{ $item->form_name }}</td>
-                                        <td>{{ $item->fname }}</td>
-                                        <td>{{ $item->email }}</td>
-                                        <td>{{ $item->notes }}</td>
-                                        <td>
-                                        
-                                            <a href="{{ url('/admin/contact/inquiries/'.$item->id) }}"
-                                               title="View Language">
-                                                <button class="btn btn-info btn-sm">
-                                                    <i class="fa fa-eye" aria-hidden="true"></i> View
-                                                </button>
-                                            </a>
-
-                                            <a href="{{ url('/admin/contact/submissions/delete',$item->id) }}"
-                                               title="View Language">
-                                                <button class="btn btn-danger btn-sm">
-                                                    <i class="fa fa-trash-o"></i> Delete
-                                                </button>
-                                            </a>
-                                        </td>  
-                                    </tr> 
-                                    @endforeach
-                                </tbody>
                             </table>
                         </div>
                     </div>
@@ -86,35 +60,37 @@
 </section>
 @endsection
 
-@push('js')<!-- ============================================================== -->
-<script src="{{asset('plugins/components/toast-master/js/jquery.toast.js')}}"></script>
-<script src="{{asset('plugins/components/datatables/jquery.dataTables.min.js')}}"></script>
-<!-- start - This is for export functionality only -->
-<!-- end - This is for export functionality only -->
+@push('js')
 <script>
-    $(document).ready(function () {
-
-        @if(\Session::has('message'))
-        $.toast({
-            heading: 'Success!',
-            position: 'top-center',
-            text: '{{session()->get('message')}}',
-            loaderBg: '#ff6849',
-            icon: 'success',
-            hideAfter: 3000,
-            stack: 6
+$(function() {
+    if ($('.yajra-datatable').length) {
+        CRUDManager.init({
+            tableSelector: '.yajra-datatable',
+            entity: 'contact',
+            routes: {
+                data: "{{ route('admin.contact.data') }}",
+                delete: "{{ route('admin.contact.destroy', ':id') }}",
+                bulkDelete: "{{ route('admin.contact.bulkDelete') }}"
+            },
+            columns: [
+                {
+                    data: 'id',
+                    name: 'checkbox',
+                    orderable: false,
+                    searchable: false,
+                    render: function(data) {
+                        return `<input type="checkbox" class="rowCheckbox" value="${data}">`;
+                    }
+                },
+                { data: 'form_name', name: 'form_name' },
+                { data: 'fname', name: 'fname' },
+                { data: 'email', name: 'email' },
+                { data: 'notes', name: 'notes', orderable: false, searchable: false },
+                { data: 'action', name: 'action', orderable: false, searchable: false },
+            ],
         });
-        @endif
-    })
+    }
+});
 
-    $(function () {
-        $('.zero-configuration').DataTable({
-            'aoColumnDefs': [{
-                'bSortable': false,
-                'aTargets': [-1] /* 1st one, start by the right */
-            }]
-        });
-
-    });
 </script>
 @endpush

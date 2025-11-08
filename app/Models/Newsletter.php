@@ -1,17 +1,17 @@
 <?php
 
-namespace App;
+namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Inquiry extends Model
+class Newsletter extends Model
 {
     /**
      * The database table used by the model.
      *
      * @var string
      */
-    protected $table = 'inquiry';
+    protected $table = 'newsletter';
 
     /**
     * The database primary key value.
@@ -25,7 +25,7 @@ class Inquiry extends Model
      *
      * @var array
      */
-  protected $fillable = ['fname', 'lname', 'email', 'notes', 'phone', 'time', 'date', 'classes', 'form_name'];
+  protected $fillable = ['newsletter_name','newsletter_message','newsletter_email'];
 
-    
+
 }

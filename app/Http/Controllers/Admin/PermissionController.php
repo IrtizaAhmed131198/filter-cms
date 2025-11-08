@@ -30,7 +30,10 @@ class PermissionController extends Controller
         }
 
         $roles = Role::with('permissions')->get();
-        $permissions = Permission::all();
+        $permissions = Permission::all()->groupBy(function ($permission) {
+            // Extract the module name (like "users", "banner", etc.)
+            return ucfirst(explode('_', $permission->name)[1] ?? 'Other');
+        });
         return view('admin.permissions.index', compact('roles', 'permissions'));
     }
 

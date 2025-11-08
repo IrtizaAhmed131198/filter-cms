@@ -1,17 +1,17 @@
 <?php
 
-namespace App;
+namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Category extends Model
+class Inquiry extends Model
 {
     /**
      * The database table used by the model.
      *
      * @var string
      */
-    protected $table = 'categories';
+    protected $table = 'inquiry';
 
     /**
     * The database primary key value.
@@ -25,7 +25,7 @@ class Category extends Model
      *
      * @var array
      */
-    protected $fillable = ['name', 'heading', 'detail', 'icon', 'image'];
+  protected $fillable = ['fname', 'lname', 'email', 'notes', 'phone', 'time', 'date', 'classes', 'form_name'];
 
-    
+
 }

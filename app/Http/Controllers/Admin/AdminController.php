@@ -147,47 +147,6 @@ class AdminController extends Controller
         return redirect('admin/logo/edit');
     }
 
-
-	public function contactSubmissions() {
-	 	$contact_inquiries = DB::table('inquiry')->get();
-
-	 	return view('admin.inquires.contact_inquiries', compact('contact_inquiries'));
-
-	}
-
-	public function contactSubmissionsDelete($id) {
-
-		  $del = DB::table('inquiry')->where('id',$id)->delete();
-
-		  if($del) {
-			  return redirect('admin/contact/inquiries')->with('flash_message', 'Contact deleted!');
-		  }
-
-	}
-
-    public function inquiryshow($id)
-    {
-            $inquiry = inquiry::findOrFail($id);
-            return view('admin.inquires.inquirydetail', compact('inquiry'));
-    }
-
-	public function newsletterInquiries() {
-
-	 	$newsletter_inquiries = DB::table('newsletter')->get();
-
-	 	return view('admin.inquires.newsletter_inquiries', compact('newsletter_inquiries'));
-
-	}
-
-	public function newsletterInquiriesDelete($id) {
-		  $del = DB::table('newsletter')->where('id',$id)->delete();
-
-		  if($del) {
-			  return redirect('admin/newsletter/inquiries')->with('flash_message', 'Contact deleted!');
-		  }
-
-	}
-
 	public function configSetting(){
 		return view('admin.dashboard.index-config');
 	}

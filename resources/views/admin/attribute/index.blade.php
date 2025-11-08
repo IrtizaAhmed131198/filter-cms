@@ -3,28 +3,28 @@
 @section('content')
 <div class="content-header row">
     <div class="content-header-left col-md-6 col-12 mb-2 breadcrumb-new">
-        <h3 class="content-header-title mb-0 d-inline-block">Category Management</h3>
+        <h3 class="content-header-title mb-0 d-inline-block">Attribute Management</h3>
         <div class="row breadcrumbs-top d-inline-block">
             <div class="breadcrumb-wrapper col-12">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item active">Home</li>
-                    <li class="breadcrumb-item">Category</li>
+                    <li class="breadcrumb-item">Attributes</li>
                 </ol>
             </div>
         </div>
     </div>
     <div class="content-header-right col-md-6 col-12">
         <div class="btn-group float-md-right">
-            @canAccess('delete_category')
+            @canAccess('delete_attribute')
                 <button id="bulkDelete" class="btn btn-danger mr-1 mb-1">Delete Selected</button>
             @endcanAccess
 
-            @canAccess('create_category')
-                <a class="btn btn-info mb-1" href="{{ route('admin.category.create') }}">Add New Category</a>
+            @canAccess('create_attribute')
+                <a class="btn btn-info mb-1" href="{{ route('admin.attribute.create') }}">Add Attribute</a>
             @endcanAccess
 
-            @canAccess('view_trash_category')
-                <a class="btn btn-warning ml-1 mb-1" href="{{ route('admin.category.trash') }}">View Trashed Attributes</a>
+            @canAccess('view_trash_attribute')
+                <a class="btn btn-warning ml-1 mb-1" href="{{ route('admin.attribute.trash') }}">View Trashed Attributes</a>
             @endcanAccess
         </div>
     </div>
@@ -70,6 +70,7 @@
                                     <th><input type="checkbox" id="selectAll"></th>
                                     <th>S.No</th>
                                     <th>Name</th>
+                                    <th>Value</th>
                                     <th>Status</th>
                                     <th>Created At</th>
                                     <th>Action</th>
@@ -90,12 +91,12 @@
 $(function() {
     CRUDManager.init({
         tableSelector: '.yajra-datatable',
-        entity: 'category',
+        entity: 'attribute',
         routes: {
-            data: "{{ route('admin.category.data') }}",
-            delete: "{{ route('admin.category.destroy', ':id') }}",
-            toggleStatus: "{{ route('admin.category.toggleStatus', ':id') }}",
-            bulkDelete: "{{ route('admin.category.bulkDelete') }}"
+            data: "{{ route('admin.attribute.data') }}",
+            delete: "{{ route('admin.attribute.destroy', ':id') }}",
+            toggleStatus: "{{ route('admin.attribute.toggleStatus', ':id') }}",
+            bulkDelete: "{{ route('admin.attribute.bulkDelete') }}"
         },
         columns: [
             {
@@ -110,6 +111,7 @@ $(function() {
                 render: (data, type, row, meta) => meta.row + meta.settings._iDisplayStart + 1
             },
             { data: 'name', name: 'name' },
+            { data: 'value', name: 'value' },
             {
                 data: 'status',
                 name: 'status',

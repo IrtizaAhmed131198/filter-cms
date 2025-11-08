@@ -1,15 +1,38 @@
 @extends('layouts.app')
 
+@push('before-css')
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+.bootstrap-tagsinput {
+    width: 100%;
+    min-height: 40px;
+    display: block;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.bootstrap-tagsinput .tag {
+    margin-right: 2px;
+    color: white;
+    background-color: #5A8DEE;
+    padding: 0.2em 0.5em;
+    border-radius: 0.25rem;
+}
+</style>
+@endpush
+
 @section('content')
+
 <div class="content-header row">
     <div class="content-header-left col-md-12 col-12 mb-2 breadcrumb-new">
-        <h3 class="content-header-title mb-0 d-inline-block">Create New Category</h3>
+        <h3 class="content-header-title mb-0 d-inline-block">Edit Attribute</h3>
         <div class="row breadcrumbs-top d-inline-block">
             <div class="breadcrumb-wrapper col-12">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{{ route('admin.dashboard') }}">Home</a></li>
-                    <li class="breadcrumb-item"><a href="{{ route('admin.category.index') }}">Categories</a></li>
-                    <li class="breadcrumb-item active">Create Category</li>
+                    <li class="breadcrumb-item"><a href="{{ route('admin.attribute.index') }}">Attribute Management</a></li>
+                    <li class="breadcrumb-item active">Edit Attribute</li>
                 </ol>
             </div>
         </div>
@@ -19,10 +42,11 @@
 <div class="content-body">
     <section id="basic-form-layouts">
         <div class="row match-height">
+            <!-- Left Side: Form -->
             <div class="col-md-7">
                 <div class="card">
                     <div class="card-header">
-                        <h4 class="card-title">Category Info</h4>
+                        <h4 class="card-title">Attribute Info</h4>
                         <a class="heading-elements-toggle"><i class="la la-ellipsis-v font-medium-3"></i></a>
                         <div class="heading-elements">
                             <ul class="list-inline mb-0">
@@ -33,30 +57,47 @@
                             </ul>
                         </div>
                     </div>
+
                     <div class="card-content collapse show">
                         <div class="card-body">
-                            <form class="form" method="POST" action="{{ route('admin.category.store') }}">
+                            <form class="form" enctype="multipart/form-data" method="POST"
+                                action="{{ route('admin.attribute.update', $attribute->id) }}">
                                 @csrf
+                                @method('PUT')
                                 <div class="form-body">
                                     <div class="row">
+                                        <!-- Attribute Name -->
                                         <div class="col-md-12">
                                             <div class="form-group">
-                                                <label>Name</label>
-                                                <input type="text" class="form-control" name="name" value="{{ old('name') }}" placeholder="Enter category name" required>
+                                                <label for="name">Name</label>
+                                                <input type="text" class="form-control" required name="name"
+                                                    id="name" placeholder="Enter Attribute Name"
+                                                    value="{{ old('name', $attribute->name) }}">
                                             </div>
                                         </div>
 
-                                        <div class="col-md-12">
+                                        <!-- Attribute Value -->
+                                        <div class="col-md-12 select2-tags-input">
                                             <div class="form-group">
-                                                <label>Description</label>
-                                                <textarea class="form-control" name="description" placeholder="Enter description">{{ old('description') }}</textarea>
+                                                <label>Values</label>
+                                                <select name="value[]" class="form-control select2-tags"
+                                                    multiple="multiple" data-placeholder="Enter or select values">
+                                                    @if(!empty($attributeValues))
+                                                        @foreach($attributeValues as $val)
+                                                            <option value="{{ $val }}" selected>{{ $val }}</option>
+                                                        @endforeach
+                                                    @endif
+                                                </select>
+                                                <small class="text-muted">Type and press Enter to add multiple values.</small>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="form-actions text-right">
-                                    <button type="submit" class="btn btn-primary"><i class="la la-check-square-o"></i> Add</button>
+                                <div class="form-actions text-right pb-0">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="la la-check-square-o"></i> Update
+                                    </button>
                                 </div>
                             </form>
                         </div>
@@ -64,6 +105,7 @@
                 </div>
             </div>
 
+            <!-- Right Side: Info / Validation -->
             <div class="col-md-5">
                 <div class="card">
                     <div class="card-header">
@@ -95,4 +137,15 @@
         </div>
     </section>
 </div>
+
 @endsection
+@push('js')
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$('.select2-tags').select2({
+    tags: true,
+    tokenSeparators: [','],
+    width: '100%'
+});
+</script>
+@endpush
