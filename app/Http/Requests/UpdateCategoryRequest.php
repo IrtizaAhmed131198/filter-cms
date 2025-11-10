@@ -9,7 +9,7 @@ class UpdateCategoryRequest extends FormRequest
 {
     public function authorize()
     {
-        // Only allow if user has permission to update categories
+        // Only allow if user has permission to update category
         return auth()->user()->hasPermission('edit_category');
     }
 
@@ -21,7 +21,7 @@ class UpdateCategoryRequest extends FormRequest
                 'string',
                 'max:255',
                 // Unique name except for the current category being updated
-                Rule::unique('categories', 'name')->ignore($this->route('category')->id),
+                Rule::unique('category', 'name')->ignore($this->route('category')->id),
             ],
             'description' => 'nullable|string|max:1000',
             'status' => 'sometimes|boolean',

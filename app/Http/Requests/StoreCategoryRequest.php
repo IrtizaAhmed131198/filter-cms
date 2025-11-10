@@ -8,14 +8,14 @@ class StoreCategoryRequest extends FormRequest
 {
     public function authorize()
     {
-        // Only allow if user has permission to create categories
+        // Only allow if user has permission to create category
         return auth()->user()->hasPermission('create_category');
     }
 
     public function rules()
     {
         return [
-            'name' => 'required|string|max:255|unique:categories,name',
+            'name' => 'required|string|max:255|unique:category,name',
             'description' => 'nullable|string|max:1000',
             'status' => 'sometimes|boolean',
         ];

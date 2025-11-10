@@ -97,9 +97,12 @@ class CategoryController extends Controller
 
     public function destroy(Category $category)
     {
+        $oldData = $category->toArray();
         $category->delete();
 
-        log_activity('delete', Category::class, $category->id, "Deleted category {$category->name}");
+        log_activity('delete', Category::class, $category->id, "Deleted category {$category->name}", [
+            'before' => $oldData
+        ]);
 
         return response()->json(['success' => 'Category deleted successfully.']);
     }

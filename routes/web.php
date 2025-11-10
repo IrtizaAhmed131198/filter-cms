@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\InquiriesController;
 use App\Http\Controllers\Admin\AttributeController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\SubCategoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -305,6 +306,20 @@ Route::middleware(['auth', 'role:1,2']) // Only super_admin & admin can access /
         Route::post('category/bulk-restore', [CategoryController::class, 'bulkRestore'])->name('admin.category.bulkRestore');
         Route::delete('category/bulk-force-delete', [CategoryController::class, 'bulkForceDelete'])->name('admin.category.bulkForceDelete');
         Route::resource('category', CategoryController::class)->names('admin.category');
+    });
+
+    // 🖼 SubCategory Management
+    Route::middleware('permission:manage_subcategory')->group(function () {
+        Route::get('subcategory/data', [SubCategoryController::class, 'getData'])->name('admin.subcategory.data');
+        Route::post('subcategory/{subcategory}/toggle-status', [SubCategoryController::class, 'toggleStatus'])->name('admin.subcategory.toggleStatus');
+        Route::get('subcategory/trash', [SubCategoryController::class, 'trash'])->name('admin.subcategory.trash');
+        Route::get('subcategory/trash/data', [SubCategoryController::class, 'getTrashedData'])->name('admin.subcategory.trash.data');
+        Route::post('subcategory/{id}/restore', [SubCategoryController::class, 'restore'])->name('admin.subcategory.restore');
+        Route::delete('subcategory/{id}/force-delete', [SubCategoryController::class, 'forceDelete'])->name('admin.subcategory.forceDelete');
+        Route::delete('subcategory/bulk-delete', [SubCategoryController::class, 'bulkDelete'])->name('admin.subcategory.bulkDelete');
+        Route::post('subcategory/bulk-restore', [SubCategoryController::class, 'bulkRestore'])->name('admin.subcategory.bulkRestore');
+        Route::delete('subcategory/bulk-force-delete', [SubCategoryController::class, 'bulkForceDelete'])->name('admin.subcategory.bulkForceDelete');
+        Route::resource('subcategory', SubCategoryController::class)->names('admin.subcategory');
     });
 
 });

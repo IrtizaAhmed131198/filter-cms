@@ -47,6 +47,7 @@ window.CRUDManager = (function () {
         }
 
         const entityName = capitalize(config.entity);
+        console.log(`Initializing CRUDManager for entity: ${entityName}`);
         const tableSelector = config.tableSelector || '.yajra-datatable';
         const table = $(tableSelector).DataTable({
             processing: true,
