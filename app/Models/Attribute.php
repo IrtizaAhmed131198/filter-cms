@@ -9,9 +9,10 @@ class Attribute extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['name', 'value'];
+    protected $fillable = ['name', 'status'];
 
-    protected $casts = [
-        'value' => 'array',
-    ];
+    public function values()
+    {
+        return $this->hasMany(AttributeValue::class, 'attribute_id', 'id');
+    }
 }

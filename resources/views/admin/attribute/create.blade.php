@@ -74,18 +74,6 @@
                                                         id="name" placeholder="Enter Attribute Name">
                                                 </div>
                                             </div>
-
-                                            <!-- Attribute Value -->
-                                            <div class="col-md-12 select2-tags-input">
-                                                <div class="form-group">
-                                                    <label>Values</label>
-                                                    <select name="value[]" class="form-control select2-tags"
-                                                        multiple="multiple" data-placeholder="Enter or select values">
-                                                    </select>
-                                                    <small class="text-muted">Type and press Enter to add multiple
-                                                        values.</small>
-                                                </div>
-                                            </div>
                                         </div>
                                     </div>
 

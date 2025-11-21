@@ -1,7 +1,7 @@
 <!-- ============================================================== -->
 <!-- All SCRIPTS AND JS LINKS BELOW  -->
 <!-- ============================================================== -->
-  
+
 <!-- Js Files Start -->
         <!-- Optional JavaScript -->
         <!-- jQuery first, then Popper.js, then Bootstrap JS -->
@@ -115,11 +115,11 @@ $('#contactform').on('submit',function(e){
 
 </script>
 
-@if (!Auth::guest())
+{{-- @if (!Auth::guest())
 @if(Auth::user()->isAdmin())
 <script>editableContent();</script>
 @endif
-@endif
+@endif --}}
 
 @if(Session::has('message'))
 <script type="text/javascript">

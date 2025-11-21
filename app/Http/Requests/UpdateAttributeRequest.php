@@ -16,9 +16,7 @@ class UpdateAttributeRequest extends FormRequest
         $attributeId = $this->route('attribute')->id ?? null;
 
         return [
-            'name'  => 'required|string|max:255|unique:attributes,name,' . $attributeId,
-            'value' => 'nullable|array',
-            'value.*' => 'string'
+            'name'  => 'required|string|max:255|unique:attributes,name,' . $attributeId
         ];
     }
 

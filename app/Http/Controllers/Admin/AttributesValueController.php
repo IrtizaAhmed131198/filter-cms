@@ -2,270 +2,236 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Requests;
 use App\Http\Controllers\Controller;
-use App\imagetable;
-use App\AttributeValue;
-use App\Attributes;
+use App\Models\Attribute;
+use App\Models\AttributeValue;
 use Illuminate\Http\Request;
-use Image;
-use File;
-use DB;
+use Yajra\DataTables\Facades\DataTables;
+use App\Http\Requests\StoreAttributeValueRequest;
+use App\Http\Requests\UpdateAttributeValueRequest;
 
 class AttributesValueController extends Controller
 {
-
-    public function __construct()
-    {
-        $this->middleware('auth');
-        $logo = imagetable::
-                     select('img_path')
-                     ->where('table_name','=','logo')
-                     ->first();
-             
-        $favicon = imagetable::
-                     select('img_path')
-                     ->where('table_name','=','favicon')
-                     ->first();  
-
-        View()->share('logo',$logo);
-        View()->share('favicon',$favicon);
-    }
-
-
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\View\View
-     */
-
     public function index()
     {
-        $model = str_slug('attributesvalue','-');
-        if(auth()->user()->permissions()->where('name','=','view-'.$model)->first()!= null) {
-
-            $attributes = AttributeValue::all();
-
-            return view('admin.attributesvalue.index', compact('attributes'));
-        }
-        return response(view('403'), 403);
-
+        return view('admin.attributesvalue.index');
     }
 
-    public function getdata(request $request )
+    public function getData(Request $request)
     {
-        $model = str_slug('attributesvalue','-');
-        if(auth()->user()->permissions()->where('name','=','view-'.$model)->first()!= null) {
+        $query = AttributeValue::with('attributes')->orderBy('id', 'desc');
 
-            $value = $request->value;
-
-            $attributes = AttributeValue::where('attribute_id' , $value)->get();
-
-            if($attributes){
-                return response()->json(['message'=> $attributes, 'status' => true]);
-            }else{
-                return response()->json(['message'=>'Error Occurred', 'status' => false]);
-            }
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
         }
-        return response(view('403'), 403);
 
+        if ($request->filled('from_date') && $request->filled('to_date')) {
+            $query->whereBetween('created_at', [
+                $request->from_date . ' 00:00:00',
+                $request->to_date . ' 23:59:59'
+            ]);
+        }
+
+        return DataTables::of($query)
+            ->addColumn('attribute', fn($row) => $row->attributes->name ?? '-')
+            ->addColumn('value', function ($row) {
+                return $row->value;
+            })
+            ->addColumn('created_at', function ($row) {
+                return $row->created_at ? $row->created_at->format('d M, Y h:i A') : '-';
+            })
+            ->addColumn('status', function ($row) {
+                $checked = $row->status ? 'checked' : '';
+                return '
+                    <label class="switch">
+                        <input type="checkbox" class="toggleAttributevalueStatus" data-id="' . $row->id . '" ' . $checked . '>
+                        <span class="slider round" title="Click to toggle status"></span>
+                    </label>
+                ';
+            })
+            ->addColumn('action', function ($row) {
+                $actions = '';
+                if (auth()->user()->hasPermission('edit_attribute_value')) {
+                    $actions .= '<a href="' . route('admin.attributesvalue.edit', $row->id) . '"
+                                    class="btn btn-sm btn-info" title="Edit Attribute Value">
+                                    <i class="la la-pencil"></i>
+                                </a> ';
+                }
+                if (auth()->user()->hasPermission('delete_attribute_value')) {
+                    $actions .= '<button class="btn btn-sm btn-danger deleteAttributevalue"
+                                    data-id="' . $row->id . '" title="Delete Attribute Value">
+                                    <i class="la la-trash"></i>
+                                </button>';
+                }
+                return $actions ?: '<span class="text-muted">No actions</span>';
+            })
+            ->rawColumns(['status', 'action'])
+            ->make(true);
     }
 
-    public function img_delete(request $request )
-    {
-        $model = str_slug('attributesvalue','-');
-        if(auth()->user()->permissions()->where('name','=','view-'.$model)->first()!= null) {
-
-            $id = $request->id;
-            // dump($id);
-            // die();
-            $product_images = DB::table('product_imagess')
-                          ->where('id', $id)
-                          ->delete();
-
-            // $attributes = AttributeValue::where('attribute_id' , $value)->get();
-
-            if($product_images){
-                return response()->json(['message'=> "Update", 'status' => true]);
-            }else{
-                return response()->json(['message'=>'Error Occurred', 'status' => false]);
-            }
-        }
-        return response(view('403'), 403);
-
-    }
-
-    public function deleteProVariant(request $request )
-    {
-        $model = str_slug('attributesvalue','-');
-        if(auth()->user()->permissions()->where('name','=','view-'.$model)->first()!= null) {
-
-            $id = $request->id;
-            $product_variant = DB::table('product_attributes')
-                                ->where('id', $id)
-                                ->delete();
-
-            if($product_variant){
-                return response()->json(['message'=> "Update", 'status' => true]);
-            }else{
-                return response()->json(['message'=>'Error Occurred', 'status' => false]);
-            }
-        }
-        return response(view('403'), 403);
-
-    }
-   /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\View\View
-     */
     public function create()
     {
-        $model = str_slug('attributesvalue','-');
-        if(auth()->user()->permissions()->where('name','=','add-'.$model)->first()!= null) {
-
-            $attributeall = Attributes::all();
-
-            return view('admin.attributesvalue.create', compact('attributeall'));
-        }
-        return response(view('403'), 403);
-
+        $attributes = Attribute::where('status', 1)->get();
+        return view('admin.attributesvalue.create', compact('attributes'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param \Illuminate\Http\Request $request
-     *
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Routing\Redirector
-     */
-    public function store(Request $request)
+    public function store(StoreAttributeValueRequest $request)
     {
-        $model = str_slug('attributesvalue','-');
-        if(auth()->user()->permissions()->where('name','=','add-'.$model)->first()!= null) {
-            $this->validate($request, [
-			'attribute_id' => 'required',
-            'value' => 'required'
-		]);
-            // $requestData = $request->all();
-            $attributes = new AttributeValue;
+        $data = $request->only('attribute_id', 'value');
 
-            $attributes['attribute_id'] = $request->input('attribute_id');
-            $attributes['value'] = $request->input('value');
-            
-            $attributes->save();
-            return redirect('admin/attributes-value')->with('message', 'Value added!');
-        }
-        return response(view('403'), 403);
-    }
+        $attributeValue = AttributeValue::create($data);
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     *
-     * @return \Illuminate\View\View
-     */
-    public function show($id)
-    {
-        $model = str_slug('attributesvalue','-');
-        if(auth()->user()->permissions()->where('name','=','view-'.$model)->first()!= null) {
-            $attributes = AttributeValue::findOrFail($id);
-            return view('admin.attributesvalue.show', compact('attributes'));
-        }
-        return response(view('403'), 403);
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     *
-     * @return \Illuminate\View\View
-     */
-    public function edit($id)
-    {
-        $model = str_slug('attributesvalue','-');
-        if(auth()->user()->permissions()->where('name','=','edit-'.$model)->first()!= null) {
-            $attributes = AttributeValue::findOrFail($id);
-            $attributeall = Attributes::all();
-
-            return view('admin.attributesvalue.edit', compact('attributes', 'attributeall'));
-        }
-        return response(view('403'), 403);
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @param  int  $id
-     *
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Routing\Redirector
-     */
-    public function update(Request $request, $id)
-    {
-        $model = str_slug('attributesvalue','-');
-        if(auth()->user()->permissions()->where('name','=','edit-'.$model)->first()!= null) {
-            $this->validate($request, [
-            
+        log_activity('create', AttributeValue::class, $attributeValue->id, 'Created a new attribute value: ' . $attributeValue->value, [
+            'attribute_value' => $attributeValue->toArray()
         ]);
 
-
-        $requestData['attribute_id'] = $request->input('attribute_id');
-        $requestData['value'] = $request->input('value');
-       
-        if ($request->hasFile('image')) {
-			
-				
-			$banner = AttributeValue::where('id', $id)->first();
-			$image_path = public_path($banner->image);	
-			
-			if(File::exists($image_path)) {
-				
-				File::delete($image_path);
-			} 
-
-            $file = $request->file('image');
-            $fileNameExt = $request->file('image')->getClientOriginalName();
-            $fileNameForm = str_replace(' ', '_', $fileNameExt);
-            $fileName = pathinfo($fileNameForm, PATHINFO_FILENAME);
-            $fileExt = $request->file('image')->getClientOriginalExtension();
-            $fileNameToStore = $fileName.'_'.time().'.'.$fileExt;
-            $pathToStore = public_path('uploads/banner/');
-            Image::make($file)->save($pathToStore . DIRECTORY_SEPARATOR. $fileNameToStore);
-			$requestData['image'] = 'uploads/banner/'.$fileNameToStore;        
-			
-        }
-
-        AttributeValue::where('id', $id)
-                  ->update($requestData);
-
-       
-        session()->flash('message', 'Successfully updated');
-        return redirect('admin/attributes-value');
-            }
-            return response(view('403'), 403);
-
-
+        return redirect()->route('admin.attributesvalue.index')->with('message', 'Attribute value added successfully!');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     *
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Routing\Redirector
-     */
-    public function destroy($id)
+    public function edit(AttributeValue $attributeValue)
     {
-       // $model = str_slug('banner','-');
-       // if(auth()->user()->permissions()->where('name','=','delete-'.$model)->first()!= null) {
-        attributevalue::destroy($id);
+        $attributes = Attribute::where('status', 1)->get();
+        return view('admin.attributesvalue.edit', compact('attributeValue', 'attributes'));
+    }
 
-            return redirect('admin/attributes-value')->with('flash_message', 'Value deleted!');
-       // }
-       // return response(view('403'), 403);
+    public function update(UpdateAttributeValueRequest $request, AttributeValue $attributeValue)
+    {
+        $oldData = $attributeValue->toArray();
 
+        $data = $request->only('attribute_id', 'value');
+
+        $attributeValue->update($data);
+
+        log_activity('update', AttributeValue::class, $attributeValue->id, 'Updated attribute value: ' . $attributeValue->value, [
+            'before' => $oldData,
+            'after'  => $attributeValue->toArray()
+        ]);
+
+        return redirect()->route('admin.attributesvalue.index')->with('message', 'Attribute value updated successfully!');
+    }
+
+    public function destroy(AttributeValue $attributeValue)
+    {
+        $attributeValue->delete();
+
+        log_activity('delete', AttributeValue::class, $attributeValue->id, "Deleted attribute value {$attributeValue->value}");
+
+        return response()->json(['success' => 'Attribute value deleted successfully.']);
+    }
+
+    public function toggleStatus(AttributeValue $attributeValue)
+    {
+        $oldStatus = $attributeValue->status;
+
+        $attributeValue->status = !$attributeValue->status;
+        $attributeValue->save();
+
+        log_activity(
+            'status_toggle',
+            AttributeValue::class,
+            $attributeValue->id,
+            'Toggled attribute value status for ' . $attributeValue->value . ' from ' . ($oldStatus ? 'Active' : 'Inactive') . ' to ' . ($attributeValue->status ? 'Active' : 'Inactive'),
+            [
+                'old_status' => $oldStatus,
+                'new_status' => $attributeValue->status
+            ]
+        );
+
+        return response()->json([
+            'success' => true,
+            'status' => $attributeValue->status ? 'Active' : 'Inactive',
+        ]);
+    }
+
+    public function trash()
+    {
+        return view('admin.attributesvalue.trash');
+    }
+
+    public function getTrashedData(Request $request)
+    {
+        $attributesValue = AttributeValue::onlyTrashed()->orderByDesc('id')->get();
+
+        return DataTables::of($attributesValue)
+            ->addColumn('attribute', fn($row) => $row->attributes->name ?? '-')
+            ->addColumn('value', function ($row) {
+                return $row->value;
+            })
+            ->addColumn('action', function ($row) {
+                $restore = '<button class="btn btn-sm btn-success restoreAttributevalue" data-id="'.$row->id.'">
+                                <i class="la la-refresh"></i> Restore
+                            </button>';
+                $delete = '<button class="btn btn-sm btn-danger forceDeleteAttributevalue" data-id="'.$row->id.'">
+                                <i class="la la-trash"></i> Delete Permanently
+                            </button>';
+                return $restore . ' ' . $delete;
+            })
+            ->rawColumns(['action'])
+            ->make(true);
+    }
+
+    public function restore($id)
+    {
+        $attributeValue = AttributeValue::withTrashed()->findOrFail($id);
+        $attributeValue->restore();
+
+        log_activity('restore', AttributeValue::class, $id, "Restored attribute value {$attributeValue->value}");
+
+        return response()->json(['success' => 'Attribute value restored successfully!']);
+    }
+
+    public function forceDelete($id)
+    {
+        $attributeValue = AttributeValue::withTrashed()->findOrFail($id);
+        $attributeValue->forceDelete();
+
+        log_activity('force_delete', AttributeValue::class, $id, "Permanently deleted attribute value {$attributeValue->value}");
+
+        return response()->json(['success' => 'Attribute value permanently deleted.']);
+    }
+
+    public function bulkDelete(Request $request)
+    {
+        $ids = $request->ids;
+
+        if (!$ids || !is_array($ids)) {
+            return response()->json(['error' => 'No items selected.'], 400);
+        }
+
+        AttributeValue::whereIn('id', $ids)->delete();
+
+        log_activity('bulk_delete', AttributeValue::class, null, 'Bulk deleted attribute values: ' . implode(',', $ids), ['ids' => $ids]);
+
+        return response()->json(['success' => 'Selected attribute values deleted successfully.']);
+    }
+
+    public function bulkRestore(Request $request)
+    {
+        $ids = $request->ids;
+
+        if (!$ids || !is_array($ids)) {
+            return response()->json(['error' => 'No items selected.'], 400);
+        }
+
+        AttributeValue::withTrashed()->whereIn('id', $ids)->restore();
+
+        log_activity('bulk_restore', AttributeValue::class, null, 'Bulk restored attribute values: ' . implode(',', $ids), ['ids' => $ids]);
+
+        return response()->json(['success' => 'Selected attribute values restored successfully.']);
+    }
+
+    public function bulkForceDelete(Request $request)
+    {
+        $ids = $request->ids;
+
+        if (!$ids || !is_array($ids)) {
+            return response()->json(['error' => 'No items selected.'], 400);
+        }
+
+        AttributeValue::withTrashed()->whereIn('id', $ids)->forceDelete();
+
+        log_activity('bulk_force_delete', AttributeValue::class, null, 'Bulk permanently deleted attribute values: ' . implode(',', $ids), ['ids' => $ids]);
+
+        return response()->json(['success' => 'Selected attribute values permanently deleted.']);
     }
 }

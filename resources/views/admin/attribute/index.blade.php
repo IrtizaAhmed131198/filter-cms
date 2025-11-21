@@ -70,7 +70,6 @@
                                     <th><input type="checkbox" id="selectAll"></th>
                                     <th>S.No</th>
                                     <th>Name</th>
-                                    <th>Value</th>
                                     <th>Status</th>
                                     <th>Created At</th>
                                     <th>Action</th>
@@ -111,7 +110,6 @@ $(function() {
                 render: (data, type, row, meta) => meta.row + meta.settings._iDisplayStart + 1
             },
             { data: 'name', name: 'name' },
-            { data: 'value', name: 'value' },
             {
                 data: 'status',
                 name: 'status',

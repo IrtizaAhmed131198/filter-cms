@@ -111,8 +111,11 @@
             <li class="nav-item">
                 <a href="javascript:;"><i class="la la-shopping-cart"></i><span class="menu-title">Ecommerce</span></a>
                 <ul class="menu-content">
-                    <li class="{{ request()->routeIs('admin.attribute*') ? 'active' : '' }}">
+                    <li class="{{ request()->routeIs('admin.attribute..*') ? 'active' : '' }}">
                         <a class="menu-item" href="{{ route('admin.attribute.index') }}"><i></i><span>Attributes</span></a>
+                    </li>
+                    <li class="{{ request()->routeIs('admin.attributesvalue.*') ? 'active' : '' }}">
+                        <a class="menu-item" href="{{ route('admin.attributesvalue.index') }}"><i></i><span>Attribute Values</span></a>
                     </li>
                     <li class="{{ request()->routeIs('admin.category*') ? 'active' : '' }}">
                         <a class="menu-item" href="{{ route('admin.category.index') }}"><i></i><span>Categories</span></a>

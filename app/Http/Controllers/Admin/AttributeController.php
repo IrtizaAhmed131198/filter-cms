@@ -71,12 +71,7 @@ class AttributeController extends Controller
 
     public function store(StoreAttributeRequest $request)
     {
-        $data = $request->only('name', 'value');
-
-        // Convert value array to JSON
-        if (isset($data['value']) && is_array($data['value'])) {
-            $data['value'] = json_encode($data['value']);
-        }
+        $data = $request->only('name');
 
         $attribute = Attribute::create($data);
 
@@ -89,20 +84,14 @@ class AttributeController extends Controller
 
     public function edit(Attribute $attribute)
     {
-        $attributeValues = json_decode($attribute->value, true) ?? [];
-        return view('admin.attribute.edit', compact('attribute', 'attributeValues'));
+        return view('admin.attribute.edit', compact('attribute'));
     }
 
     public function update(UpdateAttributeRequest $request, Attribute $attribute)
     {
         $oldData = $attribute->toArray();
 
-        $data = $request->only('name', 'value');
-
-        // Convert value array to JSON
-        if (isset($data['value']) && is_array($data['value'])) {
-            $data['value'] = json_encode($data['value']);
-        }
+        $data = $request->only('name');
 
         $attribute->update($data);
 

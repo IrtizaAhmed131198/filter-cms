@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\InquiriesController;
 use App\Http\Controllers\Admin\AttributeController;
+use App\Http\Controllers\Admin\AttributesValueController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\SubCategoryController;
 
@@ -277,6 +278,20 @@ Route::middleware(['auth', 'role:1,2']) // Only super_admin & admin can access /
         Route::post('attribute/bulk-restore', [AttributeController::class, 'bulkRestore'])->name('admin.attribute.bulkRestore');
         Route::delete('attribute/bulk-force-delete', [AttributeController::class, 'bulkForceDelete'])->name('admin.attribute.bulkForceDelete');
         Route::resource('attribute', AttributeController::class)->names('admin.attribute');
+    });
+
+    // 🖼 Attribute Value
+    Route::middleware('permission:manage_attribute_value')->group(function () {
+        Route::get('attribute-value/data', [AttributesValueController::class, 'getData'])->name('admin.attributesvalue.data');
+        Route::post('attribute-value/{attributeValue}/toggle-status', [AttributesValueController::class, 'toggleStatus'])->name('admin.attributesvalue.toggleStatus');
+        Route::get('attribute-value/trash', [AttributesValueController::class, 'trash'])->name('admin.attributesvalue.trash');
+        Route::get('attribute-value/trash/data', [AttributesValueController::class, 'getTrashedData'])->name('admin.attributesvalue.trash.data');
+        Route::post('attribute-value/{id}/restore', [AttributesValueController::class, 'restore'])->name('admin.attributesvalue.restore');
+        Route::delete('attribute-value/{id}/force-delete', [AttributesValueController::class, 'forceDelete'])->name('admin.attributesvalue.forceDelete');
+        Route::delete('attribute-value/bulk-delete', [AttributesValueController::class, 'bulkDelete'])->name('admin.attributesvalue.bulkDelete');
+        Route::post('attribute-value/bulk-restore', [AttributesValueController::class, 'bulkRestore'])->name('admin.attributesvalue.bulkRestore');
+        Route::delete('attribute-value/bulk-force-delete', [AttributesValueController::class, 'bulkForceDelete'])->name('admin.attributesvalue.bulkForceDelete');
+        Route::resource('attribute-value', AttributesValueController::class)->names('admin.attributesvalue');
     });
 
     // 🖼 Banner Management

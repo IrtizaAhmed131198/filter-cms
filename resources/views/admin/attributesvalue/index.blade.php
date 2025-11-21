@@ -1,27 +1,31 @@
 @extends('layouts.app')
 
-@push('before-css')
-    <link href="{{asset('plugins/components/datatables/jquery.dataTables.min.css')}}" rel="stylesheet" type="text/css"/>
-    <link href="https://cdn.datatables.net/buttons/1.2.2/css/buttons.dataTables.min.css" rel="stylesheet"
-          type="text/css"/>
-@endpush
-
 @section('content')
 <div class="content-header row">
     <div class="content-header-left col-md-6 col-12 mb-2 breadcrumb-new">
-        <h3 class="content-header-title mb-0 d-inline-block">Attributes Value</h3>
+        <h3 class="content-header-title mb-0 d-inline-block">Attribute Value Management</h3>
         <div class="row breadcrumbs-top d-inline-block">
             <div class="breadcrumb-wrapper col-12">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item active">Home</li>
-                    <li class="breadcrumb-item active">Attributes Value</li>
+                    <li class="breadcrumb-item">Attribute Values</li>
                 </ol>
             </div>
         </div>
     </div>
     <div class="content-header-right col-md-6 col-12">
         <div class="btn-group float-md-right">
-            <a class="btn btn-info mb-1" href="{{ url('admin/attributes-value/create') }}">Add Attributes Value</a>
+            @canAccess('delete_attribute_value')
+                <button id="bulkDelete" class="btn btn-danger mr-1 mb-1">Delete Selected</button>
+            @endcanAccess
+
+            @canAccess('create_attribute_value')
+                <a class="btn btn-info mb-1" href="{{ route('admin.attributesvalue.create') }}">Add Attribute Value</a>
+            @endcanAccess
+
+            @canAccess('view_trash_attribute_value')
+                <a class="btn btn-warning ml-1 mb-1" href="{{ route('admin.attributesvalue.trash') }}">View Trashed Attribute Values</a>
+            @endcanAccess
         </div>
     </div>
 </div>
@@ -31,71 +35,50 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <h4 class="card-title">Attributes Value Info</h4>
-                    <a class="heading-elements-toggle"><i class="la la-ellipsis-v font-medium-3"></i></a>
-                    <div class="heading-elements">
-                        <ul class="list-inline mb-0">
-                            <li><a data-action="collapse"><i class="ft-minus"></i></a></li>
-                            <li><a data-action="reload"><i class="ft-rotate-cw"></i></a></li>
-                            <li><a data-action="expand"><i class="ft-maximize"></i></a></li>
-                            <li><a data-action="close"><i class="ft-x"></i></a></li>
-                        </ul>
-                    </div>
+                    <h4 class="card-title">Attribute Value List</h4>
                 </div>
-                <div class="card-content collapse show">
-                    <div class="card-body card-dashboard">
-                        <div class="">
-                            <table class="table table-striped table-bordered zero-configuration" id="myTable">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Attributes id</th>
-                                        <th>Attributes Value</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($attributes as $item)    
-                                    <tr>
-                                        <td>{{ $item->id }}</td>
-                                        <td>{{ $item->attributes->name }}</td>
-                                        <td>{{ $item->value }}</td>
-                                        <td> 
-                                            
-                                        <a href="{{ url('/admin/attributes-value/' . $item->id . '/edit') }}"
-                                                   title="Edit Page">
-                                                    <button class="btn btn-primary btn-sm">
-                                                        <i class="fa fa-pencil-square-o" aria-hidden="true"> </i> Edit
-                                                    </button>
-                                                </a>
+                <div class="card-body card-dashboard">
+                    <div class="row mb-4 align-items-end">
+                        <div class="col-md-2">
+                            <label>Status</label>
+                            <select id="statusFilter" class="form-control">
+                                <option value="">All</option>
+                                <option value="1">Active</option>
+                                <option value="0">Inactive</option>
+                            </select>
+                        </div>
 
-                                                {!! Form::open([
-                                           'method'=>'DELETE',
-                                           'url' => ['/admin/attributes-value', $item->id],
-                                           'style' => 'display:inline'
-                                       ]) !!}
-                                                {!! Form::button('<i class="fa fa-trash-o" aria-hidden="true"></i> Delete', array(
-                                                        'type' => 'submit',
-                                                        'class' => 'btn btn-danger btn-sm',
-                                                        'title' => 'Delete Page',
-                                                        'onclick'=>'return confirm("Confirm delete?")'
-                                                )) !!}
-                                                
-                                            {!! Form::close() !!}</td>
-                                    </tr>
-                                    @endforeach  
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Attributes Code</th>
-                                        <th>Attributes Name</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                        <div class="col-md-2">
+                            <label>Date From</label>
+                            <input type="date" id="fromDate" class="form-control">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label>Date To</label>
+                            <input type="date" id="toDate" class="form-control">
+                        </div>
+
+                        <div class="col-md-2">
+                            <button id="resetFilters" class="btn btn-secondary">Reset</button>
                         </div>
                     </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped table-bordered yajra-datatable">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="selectAll"></th>
+                                    <th>S.No</th>
+                                    <th>Attribute</th>
+                                    <th>Value</th>
+                                    <th>Status</th>
+                                    <th>Created At</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                        </table>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -103,37 +86,62 @@
 </section>
 @endsection
 
-@push('js')<!-- ============================================================== -->
-<script src="{{asset('plugins/components/datatables/jquery.dataTables.min.js')}}"></script>
-
+@push('js')
 <script>
-    $(function () {
-        $('#myTable').DataTable();
-        var table = $('#example').DataTable({
-            "columnDefs": [{
-                "visible": false,
-                "targets": 2
-            }],
-            "order": [
-                [2, 'asc']
-            ],
-            "displayLength": 18,
-            "drawCallback": function (settings) {
-                var api = this.api();
-                var rows = api.rows({
-                    page: 'current'
-                }).nodes();
-                var last = null;
-                api.column(2, {
-                    page: 'current'
-                }).data().each(function (group, i) {
-                    if (last !== group) {
-                        $(rows).eq(i).before('<tr class="group"><td colspan="5">' + group + '</td></tr>');
-                        last = group;
-                    }
-                });
-            }
-        });
+$(function() {
+    CRUDManager.init({
+        tableSelector: '.yajra-datatable',
+        entity: 'attributevalue',
+        routes: {
+            data: "{{ route('admin.attributesvalue.data') }}",
+            delete: "{{ route('admin.attributesvalue.destroy', ':id') }}",
+            toggleStatus: "{{ route('admin.attributesvalue.toggleStatus', ':id') }}",
+            bulkDelete: "{{ route('admin.attributesvalue.bulkDelete') }}"
+        },
+        columns: [
+            {
+                data: 'id',
+                orderable: false,
+                searchable: false,
+                render: data => `<input type="checkbox" class="rowCheckbox" value="${data}">`
+            },
+            {
+                data: null,
+                name: 'id',
+                render: (data, type, row, meta) => meta.row + meta.settings._iDisplayStart + 1
+            },
+            { data: 'attribute', name: 'attribute' },
+            { data: 'value', name: 'value' },
+            {
+                data: 'status',
+                name: 'status',
+                orderable: false,
+                searchable: false
+            },
+            { data: 'created_at', name: 'created_at' },
+            { data: 'action', name: 'action', orderable: false, searchable: false }
+        ],
+        extraFilters: function() {
+            return {
+                status: $('#statusFilter').val(),
+                from_date: $('#fromDate').val(),
+                to_date: $('#toDate').val(),
+            };
+        }
     });
+
+    // 🔁 Refresh on filter change
+    $('#statusFilter, #fromDate, #toDate').on('change', function () {
+        $('.yajra-datatable').DataTable().ajax.reload();
+    });
+
+    // 🔄 Reset filters
+    $('#resetFilters').on('click', function () {
+        $('#statusFilter').val('');
+        $('#fromDate').val('');
+        $('#toDate').val('');
+        $('.yajra-datatable').DataTable().ajax.reload();
+    });
+});
 </script>
 @endpush
