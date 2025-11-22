@@ -1,27 +1,31 @@
 @extends('layouts.app')
 
-@push('before-css')
-    <link href="{{asset('plugins/components/datatables/jquery.dataTables.min.css')}}" rel="stylesheet" type="text/css"/>
-    <link href="https://cdn.datatables.net/buttons/1.2.2/css/buttons.dataTables.min.css" rel="stylesheet"
-          type="text/css"/>
-@endpush
-
 @section('content')
 <div class="content-header row">
     <div class="content-header-left col-md-6 col-12 mb-2 breadcrumb-new">
-        <h3 class="content-header-title mb-0 d-inline-block">Product</h3>
+        <h3 class="content-header-title mb-0 d-inline-block">Product Management</h3>
         <div class="row breadcrumbs-top d-inline-block">
             <div class="breadcrumb-wrapper col-12">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item active">Home</li>
-                    <li class="breadcrumb-item active">Product</li>
+                    <li class="breadcrumb-item">Product</li>
                 </ol>
             </div>
         </div>
     </div>
     <div class="content-header-right col-md-6 col-12">
         <div class="btn-group float-md-right">
-            <a class="btn btn-info mb-1" href="{{ url('admin/product/create') }}">Add Product</a>
+            @canAccess('delete_product')
+                <button id="bulkDelete" class="btn btn-danger mr-1 mb-1">Delete Selected</button>
+            @endcanAccess
+
+            @canAccess('create_product')
+                <a class="btn btn-info mb-1" href="{{ url('admin/product/create') }}">Add Product</a>
+            @endcanAccess
+
+            @canAccess('view_trash_product')
+                <a class="btn btn-warning ml-1 mb-1" href="{{ route('admin.product.trash') }}">View Trashed Products</a>
+            @endcanAccess
         </div>
     </div>
 </div>
@@ -31,67 +35,51 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <h4 class="card-title">Product Info</h4>
-                    <a class="heading-elements-toggle"><i class="la la-ellipsis-v font-medium-3"></i></a>
-                    <div class="heading-elements">
-                        <ul class="list-inline mb-0">
-                            <li><a data-action="collapse"><i class="ft-minus"></i></a></li>
-                            <li><a data-action="reload"><i class="ft-rotate-cw"></i></a></li>
-                            <li><a data-action="expand"><i class="ft-maximize"></i></a></li>
-                            <li><a data-action="close"><i class="ft-x"></i></a></li>
-                        </ul>
-                    </div>
+                    <h4 class="card-title">Product List</h4>
                 </div>
-                <div class="card-content collapse show">
-                    <div class="card-body card-dashboard">
-                        <div class="">
-                            <table class="table table-striped table-bordered zero-configuration" id="myTable">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Product Title</th>
-                                        <th>Product Price</th>
-                                        <th>Product Category</th>
-                                        <th>Product Image</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($product as $item)    
-                                    <tr>
-                                        <td>{{ $item->id }}</td>
-                                        <td class="text-dark weight-600"> {{ \Illuminate\Support\Str::limit($item->product_title, 50, $end='...') }}
-                                        </td>
-                                        <td>{{ $item->price }}</td>
-                                        <td>{{ $item->categorys->name }}</td>
-                                        <td><img src="{{asset($item->image)}}" alt="" title="" width="150"></td>
-                                        <td>
-                                            <a href="{{ url('/admin/product/' . $item->id . '/edit') }}">
-                                                <button class="btn btn-primary btn-sm">
-                                                    <i class="fa fa-pencil-square-o" aria-hidden="true"> </i> Edit
-                                                </button>
-                                            </a>
-                                            <a href="{{ route('product.delete', $item->id) }}" onclick='return confirm("Confirm delete?")'>
-                                                <button class="btn btn-danger btn-sm">
-                                                    <i class="fa fa-trash-o" aria-hidden="true"></i> Delete
-                                                </button>
-                                            </a>
-                                        </td>
-                                    </tr>
-                                    @endforeach  
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Product Title</th>
-                                        <th>Product Price</th>
-                                        <th>Product Category</th>
-                                        <th>Product Image</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                <div class="card-body card-dashboard">
+                    <div class="row mb-4 align-items-end">
+                        <div class="col-md-2">
+                            <label>Status</label>
+                            <select id="statusFilter" class="form-control">
+                                <option value="">All</option>
+                                <option value="1">Active</option>
+                                <option value="0">Inactive</option>
+                            </select>
                         </div>
+
+                        <div class="col-md-2">
+                            <label>Date From</label>
+                            <input type="date" id="fromDate" class="form-control">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label>Date To</label>
+                            <input type="date" id="toDate" class="form-control">
+                        </div>
+
+                        <div class="col-md-2">
+                            <button id="resetFilters" class="btn btn-secondary">Reset</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-bordered yajra-datatable">
+                            <thead>
+                                <tr>
+                                    <th class="select-all-col"><input type="checkbox" id="selectAll"></th>
+                                    <th>S.No</th>
+                                    <th>Product Name</th>
+                                    <th>Category</th>
+                                    <th>Sub Category</th>
+                                    <th>SKU</th>
+                                    <th>Price</th>
+                                    <th>Image</th>
+                                    <th>Status</th>
+                                    <th>Created At</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -100,37 +88,75 @@
 </section>
 @endsection
 
-@push('js')<!-- ============================================================== -->
-<script src="{{asset('plugins/components/datatables/jquery.dataTables.min.js')}}"></script>
+@push('js')
 
 <script>
-    $(function () {
-        $('#myTable').DataTable();
-        var table = $('#example').DataTable({
-            "columnDefs": [{
-                "visible": false,
-                "targets": 2
-            }],
-            "order": [
-                [2, 'asc']
-            ],
-            "displayLength": 18,
-            "drawCallback": function (settings) {
-                var api = this.api();
-                var rows = api.rows({
-                    page: 'current'
-                }).nodes();
-                var last = null;
-                api.column(2, {
-                    page: 'current'
-                }).data().each(function (group, i) {
-                    if (last !== group) {
-                        $(rows).eq(i).before('<tr class="group"><td colspan="5">' + group + '</td></tr>');
-                        last = group;
-                    }
-                });
-            }
-        });
+$(function() {
+    CRUDManager.init({
+        tableSelector: '.yajra-datatable',
+        entity: 'product',
+        routes: {
+            data: "{{ route('admin.product.data') }}",
+            delete: "{{ route('admin.product.destroy', ':id') }}",
+            toggleStatus: "{{ route('admin.product.toggleStatus', ':id') }}",
+            bulkDelete: "{{ route('admin.product.bulkDelete') }}"
+        },
+        columns: [
+            {
+                data: 'id',
+                name: 'checkbox',
+                orderable: false,
+                searchable: false,
+                render: function(data) {
+                    return `<input type="checkbox" class="rowCheckbox" value="${data}">`;
+                }
+            },
+            {
+                data: null,
+                name: 'id',
+                orderable: true,
+                searchable: false,
+                render: function (data, type, row, meta) {
+                    return meta.row + meta.settings._iDisplayStart + 1;
+                }
+            },
+            {data: 'name', name: 'name'},
+            {data: 'category', name: 'category'},
+            {data: 'sub_category', name: 'sub_category'},
+            {data: 'sku', name: 'sku'},
+            {data: 'base_price', name: 'base_price'},
+            {data: 'image', name: 'image', orderable: false, searchable: false},
+            {data: 'status', name: 'status', orderable: false, searchable: false},
+            {
+                data: 'created_at',
+                name: 'created_at'
+            },
+            {data: 'action', name: 'action', orderable: false, searchable: false},
+        ],
+        extraFilters: function() {
+            return {
+                status: $('#statusFilter').val(),
+                role: $('#roleFilter').val(),
+                from_date: $('#fromDate').val(),
+                to_date: $('#toDate').val(),
+            };
+        }
     });
+
+    $(document).on('mouseenter', '.toggleBannerStatus', function() {
+        $(this).attr('title', $(this).is(':checked') ? 'Active' : 'Inactive');
+    });
+
+    // 🔽 Apply filter dynamically
+    $('#statusFilter, #fromDate, #toDate').on('change', function () {
+        $('.yajra-datatable').DataTable().ajax.reload();
+    });
+    $('#resetFilters').on('click', function () {
+        $('#statusFilter').val('');
+        $('#fromDate').val('');
+        $('#toDate').val('');
+        $('.yajra-datatable').DataTable().ajax.reload();
+    });
+});
 </script>
 @endpush

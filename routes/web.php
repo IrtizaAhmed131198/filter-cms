@@ -249,13 +249,23 @@ Route::middleware(['auth', 'role:1,2']) // Only super_admin & admin can access /
     });
 
     // 🛍 Product Management
-    Route::middleware('permission:manage_products')->group(function () {
-        Route::resource('product', ProductController::class);
-        Route::get('product/{id}/delete', [ProductController::class, 'destroy'])->name('product.delete');
-        Route::get('order/list', [ProductController::class, 'orderList'])->name('order.list');
-        Route::get('order/detail/{id}', [ProductController::class, 'orderListDetail'])->name('order.list.detail');
-        Route::get('status/completed/{id}', [ProductController::class, 'updatestatuscompleted'])->name('status.completed');
-        Route::get('status/pending/{id}', [ProductController::class, 'updatestatusPending'])->name('status.pending');
+    Route::middleware('permission:manage_product')->group(function () {
+        // Route::get('product/{id}/delete', [ProductController::class, 'destroy'])->name('product.delete');
+        // Route::get('order/list', [ProductController::class, 'orderList'])->name('order.list');
+        // Route::get('order/detail/{id}', [ProductController::class, 'orderListDetail'])->name('order.list.detail');
+        // Route::get('status/completed/{id}', [ProductController::class, 'updatestatuscompleted'])->name('status.completed');
+        // Route::get('status/pending/{id}', [ProductController::class, 'updatestatusPending'])->name('status.pending');
+        Route::get('product/data', [ProductController::class, 'getData'])->name('admin.product.data');
+        Route::post('product/{product}/toggle-status', [ProductController::class, 'toggleStatus'])->name('admin.product.toggleStatus');
+        Route::get('product/trash', [ProductController::class, 'trash'])->name('admin.product.trash');
+        Route::get('product/trash/data', [ProductController::class, 'getTrashedData'])->name('admin.product.trash.data');
+        Route::post('product/{id}/restore', [ProductController::class, 'restore'])->name('admin.product.restore');
+        Route::delete('product/{id}/force-delete', [ProductController::class, 'forceDelete'])->name('admin.product.forceDelete');
+        Route::delete('product/bulk-delete', [ProductController::class, 'bulkDelete'])->name('admin.product.bulkDelete');
+        Route::post('product/bulk-restore', [ProductController::class, 'bulkRestore'])->name('admin.product.bulkRestore');
+        Route::delete('product/bulk-force-delete', [ProductController::class, 'bulkForceDelete'])->name('admin.product.bulkForceDelete');
+        Route::get('product/get-subcategories/{id}', [ProductController::class, 'getSubcategories'])->name('admin.product.getSubcategories');
+        Route::resource('product', ProductController::class)->names('admin.product');
     });
 
     // 📄 Pages & Sections

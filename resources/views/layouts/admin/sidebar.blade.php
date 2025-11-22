@@ -123,8 +123,8 @@
                     <li class="{{ request()->routeIs('admin.subcategory*') ? 'active' : '' }}">
                         <a class="menu-item" href="{{ route('admin.subcategory.index') }}"><i></i><span>SubCategories</span></a>
                     </li>
-                    <li class="{{ request()->is('admin/product*') ? 'active' : '' }}">
-                        <a class="menu-item" href="{{ url('admin/product') }}"><i></i><span>Products</span></a>
+                    <li class="{{ request()->routeIs('admin.product*') ? 'active' : '' }}">
+                        <a class="menu-item" href="{{ route('admin.product.index') }}"><i></i><span>Products</span></a>
                     </li>
                     <li class="{{ request()->is('admin/order/list*') ? 'active' : '' }}">
                         <a class="menu-item" href="{{ url('admin/order/list') }}"><i></i><span>Orders</span></a>

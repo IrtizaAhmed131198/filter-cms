@@ -2,443 +2,385 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Requests;
 use App\Http\Controllers\Controller;
-use App\Category;
-use App\orders;
-use App\orders_products;
-use App\Product;
-use App\imagetable;
-use App\Attributes;
-use App\AttributeValue;
-use App\ProductAttribute;
+use App\Models\Product;
+use App\Models\ProductImage;
+use App\Models\Category;
+use App\Models\SubCategory;
+use App\Models\Attribute;
+use App\Models\ProductAttribute;
+use App\Models\ProductVariant;
 use Illuminate\Http\Request;
-use Image;
-use File;
-use DB;
-use Session;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use App\Http\Requests\StoreProductRequest;
+use App\Traits\FileUploadTrait;
+
 class ProductController extends Controller
 {
-
-    public function __construct()
-    {
-        $this->middleware('auth');
-		
-		$logo = imagetable::
-					 select('img_path')
-					 ->where('table_name','=','logo')
-					 ->first();
-			 
-		$favicon = imagetable::
-					 select('img_path')
-					 ->where('table_name','=','favicon')
-					 ->first();	 
-
-		View()->share('logo',$logo);
-		View()->share('favicon',$favicon);
-		
-    }
-
-
     /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\View\View
+     * PRODUCT LIST PAGE
      */
-
-    public function index(Request $request)
+    public function index()
     {
-		
-        $model = str_slug('product','-');
-        if(auth()->user()->permissions()->where('name','=','view-'.$model)->first()!= null) {
-            $keyword = $request->get('search');
-            $perPage = 25;
-			
-            if (!empty($keyword)) {
-                $product = Product::where('products.product_title', 'LIKE', "%$keyword%")
-				->leftjoin('categories', 'products.category', '=', 'categories.id')
-                ->orWhere('products.description', 'LIKE', "%$keyword%")
-                ->paginate($perPage);
-            } else {
-                $product = Product::paginate($perPage);
-            }
-
-            return view('admin.product.index', compact('product'));
-        }
-        return response(view('403'), 403);
-
+        return view('admin.product.index');
     }
 
     /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\View\View
+     * DATATABLE LISTING
+     */
+    public function getData(Request $request)
+    {
+        $products = Product::with('category', 'subCategory')
+            ->orderByDesc('id')
+            ->get();
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('from_date') && $request->filled('to_date')) {
+            $query->whereBetween('created_at', [
+                $request->from_date . ' 00:00:00',
+                $request->to_date . ' 23:59:59'
+            ]);
+        }
+
+        return datatables()->of($products)
+            ->addColumn('category', fn ($row) => $row->category->name ?? '-')
+            ->addColumn('sub_category', fn ($row) => $row->subCategory->name ?? '-')
+            ->addColumn('image', function ($row) {
+                return '<img src="'.asset($row->image).'" width="120">';
+            })
+            ->addColumn('status', function ($row) {
+                $checked = $row->status ? 'checked' : '';
+                return '
+                    <label class="switch">
+                        <input type="checkbox" class="toggleBannerStatus" data-id="' . $row->id . '" ' . $checked . '>
+                        <span class="slider round" title="Click to toggle status"></span>
+                    </label>
+                ';
+            })
+            ->addColumn('created_at', function ($row) {
+                return $row->created_at ? $row->created_at->format('d M, Y h:i A') : '-';
+            })
+            ->addColumn('action', function ($row) {
+                $actions = '';
+                if (auth()->user()->hasPermission('edit_product')) {
+                    $actions .= '<a href="' . route('admin.product.edit', $row->id) . '"
+                                    class="btn btn-sm btn-info" title="Edit User">
+                                    <i class="la la-pencil"></i>
+                                </a> ';
+                }
+                if (auth()->user()->hasPermission('delete_product')) {
+                    $actions .= '<button class="btn btn-sm btn-danger deleteProduct"
+                                    data-id="' . $row->id . '" title="Delete User">
+                                    <i class="la la-trash"></i>
+                                </button>';
+                }
+                return $actions ?: '<span class="text-muted">No actions</span>';
+            })
+            ->rawColumns(['image', 'status', 'action'])
+            ->make(true);
+    }
+
+    /**
+     * CREATE PAGE
      */
     public function create()
     {
-		
-        $model = str_slug('product','-');
-        if(auth()->user()->permissions()->where('name','=','add-'.$model)->first()!= null) {
-			
-            $att = Attributes::all();
-            $attval = AttributeValue::all();
-
-			// $items = Category::all(['id', 'name']);
-			$items = Category::pluck('name', 'id');
-			
-            return view('admin.product.create', compact('items', 'att','attval'));
-        }
-        return response(view('403'), 403);
-
+        return view('admin.product.create', [
+            'categories' => Category::where('status', 1)->get(),
+            'attributes' => Attribute::with('values')->where('status', 1)->get(),
+        ]);
     }
 
     /**
-     * Store a newly created resource in storage.
-     *
-     * @param \Illuminate\Http\Request $request
-     *
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Routing\Redirector
+     * STORE PRODUCT
      */
-    public function store(Request $request)
+    public function store(StoreProductRequest $request)
     {
+        DB::beginTransaction();
 
-  
-	    //echo "<pre>";
-	    //print_r($_FILES);
-	    //return;
-	    
-		//dd($_FILES);
-        $model = str_slug('product','-');
-        if(auth()->user()->permissions()->where('name','=','add-'.$model)->first()!= null) {
-            $this->validate($request, [
-			'product_title' => 'required',
-			'description' => 'required',
-			'price' => 'required',
-			'image' => 'required',
-			'item_id' => 'required',
-		]);
-		
-		    //echo implode(",",$_POST['language']);
-		    //return;
-			$product = new product;
-           
-            $product->product_title = $request->input('product_title');      
-			$product->price = $request->input('price');   
-            $product->description = $request->input('description');   
-			$product->category = $request->input('item_id');     
-            $file = $request->file('image');
-            
-            //make sure yo have image folder inside your public
-            $destination_path = 'uploads/products/';
-            $profileImage = date("Ymdhis").".".$file->getClientOriginalExtension();
-           
-            Image::make($file)->save(public_path($destination_path) . DIRECTORY_SEPARATOR. $profileImage);
+        try {
+            $data = $request->validated();
 
-            $product->image = $destination_path.$profileImage;
-            $product->save();
-            
-            
-            if(! is_null(request('images'))) {
-                
-                $photos=request()->file('images');
-                foreach ($photos as $photo) {
-                    $destinationPath = 'uploads/products/';
-                   
-                    $filename = date("Ymdhis").uniqid().".".$photo->getClientOriginalExtension();
-                    //dd($photo,$filename);
-                    Image::make($photo)->save(public_path($destinationPath) . DIRECTORY_SEPARATOR. $filename);
-                  
-                    DB::table('product_imagess')->insert([
-                        
-                        ['image' => $destination_path.$filename, 'product_id' => $product->id]
-                       
+            // Generate slug
+            $data['slug'] = Str::slug($data['name']);
+            $data['created_by'] = auth()->id();
+
+            // -------------------------
+            // CREATE PRODUCT
+            $product = Product::create($data);
+
+            // -------------------------
+            // SAVE PRIMARY IMAGE
+            // -------------------------
+            if ($request->hasFile('image')) {
+                $primaryImagePath = $this->uploadFile(
+                    $request->file('image'),
+                    'uploads/products/',
+                    'product'
+                );
+
+                ProductImage::create([
+                    'product_id' => $product->id,
+                    'image_path' => $primaryImagePath,
+                    'is_primary' => 1,
+                ]);
+            }
+
+            // -------------------------
+            // SAVE GALLERY IMAGES
+            // -------------------------
+            if ($request->hasFile('images')) {
+                foreach ($request->file('images') as $galleryFile) {
+                    $galleryPath = $this->uploadFile(
+                        $galleryFile,
+                        'uploads/products/',
+                        'gallery'
+                    );
+
+                    ProductImage::create([
+                        'product_id' => $product->id,
+                        'image_path' => $galleryPath,
+                        'is_primary' => 0,
                     ]);
-                    
                 }
-            
-            }
-             //$photos->save();
-            //$requestData = $request->all();
-            //Product::create($requestData);
-
-            $attval = $request->attribute;
-        
-            for($i = 0; $i < count($attval); $i++)
-            {
-                $product_attributes = new ProductAttribute;
-                $product_attributes->attribute_id = $attval[$i]['attribute_id'];
-                $product_attributes->value = $attval[$i]['value'];
-                $product_attributes->price = $attval[$i]['v-price'];
-                $product_attributes->qty = $attval[$i]['qty'];
-                $product_attributes->product_id = $product->id;
-
-                $product_attributes->save();
             }
 
+            // -------------------------
+            // FALLBACK: MAKE FIRST IMAGE PRIMARY
+            // -------------------------
+            if (!$product->images()->where('is_primary', 1)->exists()) {
+                $firstImage = $product->images()->first();
+                if ($firstImage) {
+                    $firstImage->update(['is_primary' => 1]);
+                }
+            }
 
-
-            
-
-            return redirect('admin/product')->with('message', 'Product added!');
-        }
-        return response(view('403'), 403);
-    }
-
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     *
-     * @return \Illuminate\View\View
-     */
-    public function show($id)
-    {
-        $model = str_slug('product','-');
-        if(auth()->user()->permissions()->where('name','=','view-'.$model)->first()!= null) {
-            $product = Product::findOrFail($id);
-            return view('admin.product.show', compact('product'));
-        }
-        return response(view('403'), 403);
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     *
-     * @return \Illuminate\View\View
-     */
-    public function edit($id)
-    {
-
-        
-		
-        $model = str_slug('product','-');
-        if(auth()->user()->permissions()->where('name','=','edit-'.$model)->first()!= null) {
-
-            $att = Attributes::all();
-            $product = Product::findOrFail($id);
-			
-			$items = Category::pluck('name', 'id');
-		
-			$product_images = DB::table('product_imagess')
-                          ->where('product_id', $id)
-                          ->get();
-			
-		
-			
-            return view('admin.product.edit', compact('product','items','product_images','att'));
-        }
-        return response(view('403'), 403);
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @param  int  $id
-     *
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Routing\Redirector
-     */
-    public function update(Request $request, $id)
-    { 
-        $model = str_slug('product','-');
-        if(auth()->user()->permissions()->where('name','=','edit-'.$model)->first()!= null) {
-            $this->validate($request, [
-			'product_title' => 'required',
-			'description' => 'required',
-			'item_id' => 'required'
-		]);
-		
-        $requestData['product_title'] = $request->input('product_title');
-        $requestData['description'] = $request->input('description');
-		$requestData['sku'] = $request->input('sku');
-		$requestData['price'] = $request->input('price');
-		$requestData['category'] = $request->input('item_id');
-
-        // dump($request->input());
-        // die();
-    /*Insert your data*/
-
-    // Detail::insert( [
-        // 'images'=>  implode("|",$images),
-    // ]);
-
-        if ($request->hasFile('image')) {
-			
-			$product = product::where('id', $id)->first();
-			$image_path = public_path($product->image);	
-			
-			if(File::exists($image_path)) {
-				
-				File::delete($image_path);
-			} 
-
-            $file = $request->file('image');
-            $fileNameExt = $request->file('image')->getClientOriginalName();
-            $fileNameForm = str_replace(' ', '_', $fileNameExt); 
-            $fileName = pathinfo($fileNameForm, PATHINFO_FILENAME);
-            $fileExt = $request->file('image')->getClientOriginalExtension();
-            $fileNameToStore = $fileName.'_'.time().'.'.$fileExt;
-            $pathToStore = public_path('uploads/products/');
-            Image::make($file)->save($pathToStore . DIRECTORY_SEPARATOR. $fileNameToStore);
-			
-			$requestData['image'] = 'uploads/products/'.$fileNameToStore;               
-        }
-		
-            if(! is_null(request('images'))) {
-                
-                $photos=request()->file('images');
-                foreach ($photos as $photo) {
-                    $destinationPath = 'uploads/products/';
-                   
-                    $filename = date("Ymdhis").uniqid().".".$photo->getClientOriginalExtension();
-                    //dd($photo,$filename);
-                    Image::make($photo)->save(public_path($destinationPath) . DIRECTORY_SEPARATOR. $filename);
-                  
-                    $product = product::where('id', $id)->first();
-
-                    DB::table('product_imagess')->insert([
-                        
-                        ['image' => $destinationPath.$filename, 'product_id' => $product->id]
-                       
+            // -------------------------
+            // SAVE SIMPLE PRODUCT ATTRIBUTES
+            // -------------------------
+            if ($request->has('product_attributes')) {
+                foreach ($request->product_attributes as $attr) {
+                    ProductAttribute::create([
+                        'product_id'   => $product->id,
+                        'attribute_id' => $attr['attribute_id'],
+                        'value'        => $attr['value'],
+                        'price'        => $attr['price'] ?? 0,
+                        'qty'          => $attr['qty'] ?? 0,
                     ]);
-                    
                 }
-            
             }
 
-        product::where('id', $id)
-                ->update($requestData);
-
-
-            $attval = $request->attribute;
-            $product_attribute_id = $request->product_attribute;
-            $oldatt = $request->attribute_id;
-            $oldval = $request->value;
-            $oldprice = $request->v_price;
-            $oldqty = $request->qty;
-
-            for($j = 0; $j < count($oldatt); $j++){
-                $product_attribute = ProductAttribute::find($product_attribute_id[$j]);
-                $product_attribute->attribute_id = $oldatt[$j];
-                $product_attribute->value = $oldval[$j];
-                $product_attribute->price = $oldprice[$j];
-                $product_attribute->qty = $oldqty[$j];
-                $product_attribute->save();
-            }
-    
-            for($i = 0; $i < count($attval); $i++)
-            {
-                $product_attributes = new ProductAttribute;
-                $product_attributes->attribute_id = $attval[$i]['attribute_id'];
-                $product_attributes->value = $attval[$i]['value'];
-                $product_attributes->price = $attval[$i]['v-price'];
-                $product_attributes->qty = $attval[$i]['qty'];
-                $product_attributes->product_id = $id;
-                $product_attributes->save();
-            }
-          
-         /*        
-        if(! is_null(request('images'))) {
-                
-                
-                DB::table('product_imagess')->where('product_id', '=', $id)->delete();
-                
-                $photos=request()->file('images');
-                
-                
-                
-                foreach ($photos as $photo) {
-                    $destinationPath = 'uploads/products/';
-                  
-                    $fileName = uniqid() . "_" . $file->getClientOriginalName();
-                    $file->move(storage_path($destinationPath), $fileName);
-                    
-                  
-                    DB::table('product_imagess')->insert([
-                        
-                        ['image' => $destinationPath.$filename, 'product_id' => $product->id]
-                       
+            // -------------------------
+            // SAVE PRODUCT VARIANTS
+            // -------------------------
+            if ($request->has('variants')) {
+                foreach ($request->variants as $variant) {
+                    $product->variants()->create([
+                        'attributes' => json_encode($variant['attributes']),
+                        'sku'        => $variant['sku'] ?? null,
+                        'price'      => $variant['price'] ?? 0,
+                        'stock'      => $variant['stock'] ?? 0,
+                        'status'     => 1,
                     ]);
-                    
                 }
-            
-        }        
-        */        
-                
+            }
 
-             return redirect('admin/product')->with('message', 'Product updated!');
+            // -------------------------
+            // LOG ACTIVITY
+            // -------------------------
+            log_activity(
+                'create',
+                Product::class,
+                $product->id,
+                'Created new product: ' . $product->name,
+                ['product' => $product->toArray()]
+            );
+
+            DB::commit();
+
+            return redirect()
+                ->route('admin.product.index')
+                ->with('message', 'Product added successfully!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', $e->getMessage());
         }
-        return response(view('403'), 403);
-
     }
 
     /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     *
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Routing\Redirector
+     * EDIT PAGE
      */
-    public function destroy($id)
+    public function edit(Product $product)
     {
-        $model = str_slug('product','-');
-        if(auth()->user()->permissions()->where('name','=','delete-'.$model)->first()!= null) {
-            Product::destroy($id);
-
-            return redirect('admin/product')->with('flash_message', 'Product deleted!');
-        }
-        return response(view('403'), 403);
-
+        return view('admin.product.edit', [
+            'product'     => $product,
+            'images'      => $product->images,
+            'categories'  => Category::where('status', 1)->get(),
+            'subCats'     => SubCategory::where('category_id', $product->category_id)->get(),
+            'attributes'  => Attribute::with('values')->where('status', 1)->get(),
+            'variants'    => $product->variants ?? [],
+        ]);
     }
-	public function orderList() {
-	
-		$orders = orders::
-				    select('orders.*')
-				   ->get();
-		  		   
-		return view('admin.ecommerce.order-list', compact('orders'));
-	}
-	
-	public function orderListDetail($id) {
-		
-		$order_id = $id;
-		$order = orders::where('id',$order_id)->first();
-		$order_products = orders_products::where('orders_id',$order_id)->get();
-		
-	
-		
-		return view('admin.ecommerce.order-page')->with('title','Invoice #'.$order_id)->with(compact('order','order_products'))->with('order_id',$order_id);
-		
-		// return view('admin.ecommerce.order-page');	
-	}	
-	 
-	public function updatestatuscompleted($id) {
-		
-		$order_id = $id;
-		$order = DB::table('orders')
-              ->where('id', $id)
-              ->update(['order_status' => 'Completed']);
-		
-	
-		Session::flash('message', 'Order Status Updated Successfully'); 
-						Session::flash('alert-class', 'alert-success'); 
-						return back();
-	
-	}
-	public function updatestatusPending($id) {
-		
-		$order_id = $id;
-		$order = DB::table('orders')
-              ->where('id', $id)
-              ->update(['order_status' => 'Pending']);
-		
-	
-		Session::flash('message', 'Order Status Updated Successfully'); 
-						Session::flash('alert-class', 'alert-success'); 
-						return back();
-	
-	}	
-	
+
+    /**
+     * UPDATE PRODUCT
+     */
+    public function update(Request $request, Product $product)
+    {
+        DB::beginTransaction();
+        try {
+            $product->update([
+                'category_id'       => $request->category_id,
+                'sub_category_id'   => $request->sub_category_id,
+                'name'              => $request->name,
+                'slug'              => Str::slug($request->name),
+                'short_description' => $request->short_description,
+                'description'       => $request->description,
+                'base_price'        => $request->base_price,
+                'discount_price'    => $request->discount_price,
+                'sku'               => $request->sku,
+                'stock'             => $request->stock,
+                'is_charge_tax'     => $request->is_charge_tax ?? 0,
+                'is_featured'       => $request->is_featured ?? 0,
+                'status'            => $request->status ?? 1,
+            ]);
+
+            /**
+             * NEW IMAGES
+             */
+            if ($request->hasFile('images')) {
+                foreach ($request->images as $img) {
+                    $path = $img->store('uploads/products', 'public');
+                    ProductImage::create([
+                        'product_id' => $product->id,
+                        'image_path' => $path,
+                        'is_primary' => 0
+                    ]);
+                }
+            }
+
+            /**
+             * ATTRIBUTES (DELETE OLD + ADD NEW)
+             */
+            ProductAttribute::where('product_id', $product->id)->delete();
+
+            if ($request->has('product_attributes')) {
+                foreach ($request->product_attributes as $attr) {
+                    ProductAttribute::create([
+                        'product_id'   => $product->id,
+                        'attribute_id' => $attr['attribute_id'],
+                        'value'        => $attr['value'],
+                        'price'        => $attr['price'] ?? 0,
+                        'qty'          => $attr['qty'] ?? 0,
+                    ]);
+                }
+            }
+
+            /**
+             * VARIANTS (DELETE OLD + ADD NEW)
+             */
+            $product->variants()->delete();
+
+            if ($request->has('variants')) {
+                foreach ($request->variants as $variant) {
+                    $product->variants()->create([
+                        'attributes' => json_encode($variant['attributes']),
+                        'sku'        => $variant['sku'] ?? null,
+                        'price'      => $variant['price'] ?? 0,
+                        'stock'      => $variant['stock'] ?? 0,
+                        'status'     => 1
+                    ]);
+                }
+            }
+
+            log_activity('update', Product::class, $product->id, 'Updated product: '.$product->name);
+
+            DB::commit();
+
+            return redirect()->route('admin.product.index')->with('message', 'Product updated successfully!');
+        } catch (\Exception $e) {
+            DB::rollback();
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * DELETE PRODUCT (Soft Delete)
+     */
+    public function destroy(Product $product)
+    {
+        $product->delete();
+
+        log_activity('delete', Product::class, $product->id, "Deleted product {$product->name}");
+
+        return response()->json(['success' => 'Product deleted successfully.']);
+    }
+
+    /**
+     * TOGGLE STATUS
+     */
+    public function toggleStatus(Product $product)
+    {
+        $old = $product->status;
+        $product->status = !$old;
+        $product->save();
+
+        return response()->json(['status' => $product->status]);
+    }
+
+    /**
+     * TRASH PAGE
+     */
+    public function trash()
+    {
+        return view('admin.product.trash');
+    }
+
+    /**
+     * TRASH AJAX DATA
+     */
+    public function getTrashedData()
+    {
+        $products = Product::onlyTrashed()->get();
+
+        return datatables()->of($products)
+            ->addColumn('action', function ($row) {
+                return '
+                    <button class="btn btn-sm btn-success restoreProduct" data-id="'.$row->id.'">Restore</button>
+                    <button class="btn btn-sm btn-danger forceDeleteProduct" data-id="'.$row->id.'">Delete Permanently</button>
+                ';
+            })
+            ->rawColumns(['action'])
+            ->make(true);
+    }
+
+    public function restore($id)
+    {
+        $product = Product::onlyTrashed()->findOrFail($id);
+        $product->restore();
+
+        return response()->json(['success' => 'Product restored successfully.']);
+    }
+
+    public function forceDelete($id)
+    {
+        $product = Product::onlyTrashed()->findOrFail($id);
+
+        $product->images()->delete();
+        $product->forceDelete();
+
+        return response()->json(['success' => 'Product permanently deleted.']);
+    }
+
+    public function getSubcategories($id)
+    {
+        $subcategories = SubCategory::where('category_id', $id)->get();
+
+        return response()->json($subcategories);
+    }
 }
